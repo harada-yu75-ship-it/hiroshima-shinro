@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy:        #1a2744;
+  --navy-light:  #243460;
+  --red:         #C0392B;
+  --red-light:   #E74C3C;
+  --gold:        #D4A843;
+  --cream:       #FDF8F2;
+  --surface:     #FFFFFF;
+  --border:      #E4E4E4;
+  --text:        #1a1a1a;
+  --text-muted:  #6B7280;
+  --radius:      12px;
+  --radius-sm:   7px;
+  --shadow-sm:   0 1px 4px rgba(0,0,0,.07);
+  --shadow-md:   0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Noto Sans JP', 'Zen Kaku Gothic New', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── アニメーション ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease both;
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease both;
+}
+
+/* ── スケルトンローダー ── */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── カスタムスクロールバー ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+/* ── フォーカスリング（アクセシビリティ） ── */
+:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
