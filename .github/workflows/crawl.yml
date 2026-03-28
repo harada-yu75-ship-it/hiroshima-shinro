@@ -19,8 +19,7 @@ jobs:
           python-version: '3.12'
 
       - name: install
-        run: pip install requests beautifulsoup4 anthropic supabase python-dotenv
-
+        run: pip install requests beautifulsoup4 anthropic supabase python-dotenv pdfplumber
       - name: run crawler
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
