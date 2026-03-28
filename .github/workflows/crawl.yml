@@ -2,7 +2,7 @@ name: 学校情報クローラー
 
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 18 * * 1,4'
   workflow_dispatch:
 
 jobs:
