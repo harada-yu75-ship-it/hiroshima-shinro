@@ -26,8 +26,8 @@ anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 supabase  = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 MAX_TEXT_LENGTH = 15000
-CRAWL_DELAY_MIN = 3
-CRAWL_DELAY_MAX = 7
+CRAWL_DELAY_MIN = 15
+CRAWL_DELAY_MAX = 30
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
