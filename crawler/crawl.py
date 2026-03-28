@@ -123,7 +123,8 @@ def extract_events_with_llm(text, school_name):
         print("  " + str(len(events)) + "件のイベントを抽出")
         return events
     except Exception as e:
-        print("  LLMエラー: " + str(e))
+        import traceback
+        print("  LLMエラー詳細: " + traceback.format_exc())
         return []
 
 
