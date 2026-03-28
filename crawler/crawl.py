@@ -3,12 +3,18 @@ import json
 import time
 import random
 import requests
-import httpx
+import io
 from bs4 import BeautifulSoup
 from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
 from datetime import date, datetime, timezone
+
+try:
+    import pdfplumber
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 load_dotenv()
 
@@ -16,23 +22,16 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 SUPABASE_URL      = os.getenv("SUPABASE_URL")
 SUPABASE_KEY      = os.getenv("SUPABASE_KEY")
 
-http_client = httpx.Client(verify=False)
-anthropic = Anthropic(api_key=ANTHROPIC_API_KEY, http_client=http_client)
+anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 supabase  = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase.postgrest.session = httpx.Client(
-    verify=False,
-    headers={
-        "apikey": SUPABASE_KEY,
-        "Authorization": "Bearer " + SUPABASE_KEY
-    },
-    base_url=SUPABASE_URL + "/rest/v1/"
-)
 
 MAX_TEXT_LENGTH = 15000
 CRAWL_DELAY_MIN = 3
 CRAWL_DELAY_MAX = 7
 
-HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
 
 SYSTEM_PROMPT = (
     "あなたは学校Webサイトからオープンスクール・学校説明会等の情報を抽出するエージェントです。\n"
@@ -43,24 +42,71 @@ SYSTEM_PROMPT = (
 )
 
 
-def fetch_page(url):
+def fetch_pdf(url):
+    """PDFをダウンロードしてテキストを抽出する"""
+    try:
+        print("  PDFダウンロード中: " + url)
+        resp = requests.get(url, headers=HEADERS, timeout=30, verify=False)
+        resp.raise_for_status()
+        if PDF_AVAILABLE:
+            with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            if len(text) > MAX_TEXT_LENGTH:
+                text = text[:MAX_TEXT_LENGTH]
+            print("  PDF取得成功(" + str(len(text)) + "文字)")
+            return text
+        else:
+            print("  pdfplumberが未インストールです")
+            return None
+    except Exception as e:
+        print("  PDF取得失敗: " + str(e))
+        return None
+
+
+def fetch_html(url):
+    """HTMLページのテキストを取得する"""
     try:
         print("  アクセス中: " + url)
         resp = requests.get(url, headers=HEADERS, timeout=15, verify=False)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding
         soup = BeautifulSoup(resp.text, "html.parser")
+
+        # PDFリンクを探す
+        pdf_links = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.endswith(".pdf"):
+                if href.startswith("http"):
+                    pdf_links.append(href)
+                else:
+                    from urllib.parse import urljoin
+                    pdf_links.append(urljoin(url, href))
+
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
         lines = [l.strip() for l in soup.get_text(separator="\n", strip=True).splitlines() if l.strip()]
         text = "\n".join(lines)
         if len(text) > MAX_TEXT_LENGTH:
             text = text[:MAX_TEXT_LENGTH]
-        print("  取得成功(" + str(len(text)) + "文字)")
-        return text
+        print("  取得成功(" + str(len(text)) + "文字、PDFリンク" + str(len(pdf_links)) + "件)")
+        return text, pdf_links
     except Exception as e:
         print("  取得失敗: " + str(e))
-        return None
+        return None, []
+
+
+def fetch_page(url):
+    """URLがPDFかHTMLかを判定して取得する"""
+    if url.endswith(".pdf"):
+        text = fetch_pdf(url)
+        return text, []
+    else:
+        return fetch_html(url)
 
 
 def extract_events_with_llm(text, school_name):
@@ -87,7 +133,7 @@ def save_events(school_id, events, source_url):
         return
     try:
         today = date.today().isoformat()
-        future = [e for e in events if e.get("event_date", "") >= today]
+        future = [e for e in events if e.get("event_date") and e.get("event_date") >= today]
         if not future:
             print("  今日以降のイベントなし")
             return
@@ -124,11 +170,18 @@ def crawl_school(school):
         return
     all_events = []
     for url in crawl_urls:
-        text = fetch_page(url)
-        if not text:
-            continue
-        events = extract_events_with_llm(text, school["name"])
-        all_events.extend(events)
+        text, pdf_links = fetch_page(url)
+        if text:
+            events = extract_events_with_llm(text, school["name"])
+            all_events.extend(events)
+            # HTMLページ内のPDFリンクも解析
+            for pdf_url in pdf_links[:2]:  # 最大2つまで
+                delay = random.uniform(2, 4)
+                time.sleep(delay)
+                pdf_text = fetch_pdf(pdf_url)
+                if pdf_text:
+                    pdf_events = extract_events_with_llm(pdf_text, school["name"])
+                    all_events.extend(pdf_events)
         delay = random.uniform(CRAWL_DELAY_MIN, CRAWL_DELAY_MAX)
         print("  " + str(round(delay, 1)) + "秒待機...")
         time.sleep(delay)
@@ -139,7 +192,7 @@ def main():
     print("="*60)
     print("広島市進路情報サイト - クローラー起動")
     print("="*60)
-    print("\n学校一覧を取得中...")
+    print("学校一覧を取得中...")
     result = supabase.table("schools").select("*").eq("crawl_enabled", True).execute()
     schools = result.data
     if not schools:
