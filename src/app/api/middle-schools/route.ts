@@ -16,7 +16,7 @@ export async function GET() {
       .from('middle_schools')
       .select('*')
       .order('name')
-      .limit(100)
+      .limit(200)
 
     if (error) throw error
     schools = data ?? []
