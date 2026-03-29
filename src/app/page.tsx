@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import type { SchoolWithEvents, MiddleSchool, FilterState, SchoolType } from '@/types'
+import type { SchoolWithEvents, MiddleSchool, FilterState, SchoolFilter } from '@/types'
 import { haversineKm, isFutureOrToday } from '@/lib/utils'
 import Header from '@/components/Header'
 import HeroSection from '@/components/HeroSection'
@@ -14,9 +14,19 @@ import SkeletonCard from '@/components/SkeletonCard'
 const INITIAL_FILTERS: FilterState = {
   middleSchoolId: '',
   distanceKm: 999,
-  schoolType: 'all',
+  schoolFilter: 'all',
   keyword: '',
-  sortBy: 'distance',
+  sortBy: 'date',
+}
+
+function matchesFilter(school: SchoolWithEvents, filter: SchoolFilter): boolean {
+  switch (filter) {
+    case 'all':          return true
+    case 'high_public':  return school.school_type === 'high' && school.is_public
+    case 'high_private': return school.school_type === 'high' && !school.is_public
+    case 'tsushin':      return school.school_type === 'tsushin'
+    case 'senmon':       return school.school_type === 'senmon'
+  }
 }
 
 export default function HomePage() {
@@ -54,9 +64,7 @@ export default function HomePage() {
         s.name.includes(kw) || (s.name_kana ?? '').includes(kw)
       )
     }
-    if (filters.schoolType !== 'all') {
-      result = result.filter(s => s.school_type === filters.schoolType)
-    }
+    result = result.filter(s => matchesFilter(s, filters.schoolFilter))
     result = result.map(s => ({
       ...s,
       distanceKm: selectedMiddle
@@ -70,26 +78,28 @@ export default function HomePage() {
       result = result.filter(s => (s.distanceKm ?? 9999) <= filters.distanceKm)
     }
     switch (filters.sortBy) {
-      case 'distance':
-        result.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999))
+      case 'new':
+        result.sort((a, b) => {
+          const aDate = a.events[0]?.crawled_at ?? ''
+          const bDate = b.events[0]?.crawled_at ?? ''
+          return bDate.localeCompare(aDate)
+        })
         break
       case 'date':
         result.sort((a, b) =>
           (a.events[0]?.event_date ?? '').localeCompare(b.events[0]?.event_date ?? '')
         )
         break
-      case 'name':
-        result.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-        break
     }
     return result
   }, [allSchools, filters, selectedMiddle])
 
-  const typeCounts = useMemo(() => ({
-    all:     results.length,
-    high:    results.filter(s => s.school_type === 'high').length,
-    tsushin: results.filter(s => s.school_type === 'tsushin').length,
-    senmon:  results.filter(s => s.school_type === 'senmon').length,
+  const counts = useMemo(() => ({
+    all:          results.length,
+    high_public:  results.filter(s => s.school_type === 'high' && s.is_public).length,
+    high_private: results.filter(s => s.school_type === 'high' && !s.is_public).length,
+    tsushin:      results.filter(s => s.school_type === 'tsushin').length,
+    senmon:       results.filter(s => s.school_type === 'senmon').length,
   }), [results])
 
   return (
@@ -100,7 +110,7 @@ export default function HomePage() {
           background: '#EBF4FF', borderBottom: '1px solid #BDD9F5',
           color: '#1a5a9a', fontSize: 11, textAlign: 'center', padding: '8px 16px',
         }}>
-          ⚠️ デモモード：サンプルデータを表示しています。Supabase接続設定後に実データが表示されます。
+          ⚠️ デモモード：サンプルデータを表示しています。
         </div>
       )}
       <HeroSection />
@@ -113,9 +123,9 @@ export default function HomePage() {
       />
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
         <TypeFilterTabs
-          active={filters.schoolType}
-          counts={typeCounts}
-          onChange={(type) => setFilters(f => ({ ...f, schoolType: type as SchoolType | 'all' }))}
+          active={filters.schoolFilter}
+          counts={counts}
+          onChange={(f) => setFilters(prev => ({ ...prev, schoolFilter: f as SchoolFilter }))}
         />
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -140,9 +150,8 @@ export default function HomePage() {
               color: 'var(--text-muted)', background: 'white', outline: 'none', cursor: 'pointer',
             }}
           >
-            <option value="distance">距離順</option>
+            <option value="new">新着順</option>
             <option value="date">開催日順</option>
-            <option value="name">学校名順</option>
           </select>
         </div>
         <div style={{
