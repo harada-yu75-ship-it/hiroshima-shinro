@@ -1,27 +1,27 @@
 'use client'
 
+import type { SchoolFilter } from '@/types'
+
 interface Props {
-  active: string
-  counts: { all: number; high: number; tsushin: number; senmon: number }
-  onChange: (type: string) => void
+  active: SchoolFilter
+  counts: Record<SchoolFilter, number>
+  onChange: (filter: SchoolFilter) => void
 }
 
-const TABS = [
-  { key: 'all',     label: 'すべて',     color: 'var(--navy)' },
-  { key: 'high',    label: '全日制高校', color: 'var(--red)' },
-  { key: 'tsushin', label: '通信制高校', color: '#7B68EE' },
-  { key: 'senmon',  label: '専門学校',   color: 'var(--gold)' },
+const TABS: { key: SchoolFilter; label: string; color: string }[] = [
+  { key: 'all',          label: 'すべて',        color: 'var(--navy)' },
+  { key: 'high_public',  label: '全日制（公立）', color: '#C0392B' },
+  { key: 'high_private', label: '全日制（私立）', color: '#E67E22' },
+  { key: 'tsushin',      label: '通信制',         color: '#7B68EE' },
+  { key: 'senmon',       label: '専門学校',       color: '#D4A843' },
 ]
 
 export default function TypeFilterTabs({ active, counts, onChange }: Props) {
   return (
-    <div style={{
-      display: 'flex', gap: 8, flexWrap: 'wrap',
-      marginTop: 20,
-    }}>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
       {TABS.map(tab => {
         const isActive = active === tab.key
-        const count = counts[tab.key as keyof typeof counts]
+        const count = counts[tab.key] ?? 0
         return (
           <button
             key={tab.key}
@@ -46,10 +46,8 @@ export default function TypeFilterTabs({ active, counts, onChange }: Props) {
               color: isActive ? 'white' : 'var(--text-muted)',
               borderRadius: 999,
               padding: '0 6px',
-              fontSize: 10,
-              fontWeight: 700,
-              minWidth: 20,
-              textAlign: 'center',
+              fontSize: 10, fontWeight: 700,
+              minWidth: 20, textAlign: 'center',
             }}>
               {count}
             </span>
