@@ -1,12 +1,15 @@
-// 学校種別
+/// 学校種別
 export type SchoolType = 'high' | 'tsushin' | 'senmon'
+
+// タブフィルター種別
+export type SchoolFilter = 'all' | 'high_public' | 'high_private' | 'tsushin' | 'senmon'
 
 // イベント（DBから取得した生データ）
 export interface Event {
   id: string
   school_id: string
   event_name: string
-  event_date: string        // YYYY-MM-DD
+  event_date: string
   event_time: string | null
   requires_application: boolean | null
   capacity: number | null
@@ -23,6 +26,7 @@ export interface School {
   name: string
   name_kana: string | null
   school_type: SchoolType
+  is_public: boolean
   address: string
   lat: number
   lng: number
@@ -51,13 +55,13 @@ export interface SchoolWithEvents extends School {
 // フィルター状態
 export interface FilterState {
   middleSchoolId: string
-  distanceKm: number   // 999 = 制限なし
-  schoolType: SchoolType | 'all'
+  distanceKm: number
+  schoolFilter: SchoolFilter
   keyword: string
-  sortBy: 'distance' | 'date' | 'name'
+  sortBy: 'new' | 'date'
 }
 
-// Supabase DB型定義（型安全のため）
+// Supabase DB型定義
 export interface Database {
   public: {
     Tables: {
