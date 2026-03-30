@@ -38,12 +38,39 @@ SYSTEM_PROMPT = (
     "以下のテキストから、中学生向けのイベント情報を全て抽出し、JSON配列のみで返してください。\n"
     "返却形式(JSON配列のみ、前後に説明文不要):\n"
     '[{"event_name":"名前","event_date":"YYYY-MM-DD","event_time":"時間","requires_application":true,"capacity":null,"notes":"備考"}]\n'
-    "注意:過去イベント除外、日程不明除外、中学生以外向け除外、見つからない場合は[]"
+    "注意:過去イベント除外、日程不明除外、中学生以外向け除外、見つからない場合は[]\n"
+    "現在は2026年です。令和7年=2025年、令和8年=2026年として日付を変換してください。"
 )
 
 
+def record_error(school_id: str, error_msg: str):
+    """クロールエラーをDBに記録する"""
+    try:
+        # 現在のerror_countを取得してインクリメント
+        result = supabase.table("schools").select("crawl_error_count").eq("id", school_id).execute()
+        current_count = result.data[0].get("crawl_error_count", 0) if result.data else 0
+        supabase.table("schools").update({
+            "crawl_error": error_msg[:500],  # 500文字以内に収める
+            "crawl_error_count": current_count + 1,
+            "last_crawled_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", school_id).execute()
+        print(f"  ⚠️ エラーをDBに記録 (連続{current_count + 1}回)")
+    except Exception as e:
+        print(f"  エラー記録失敗: {e}")
+
+
+def clear_error(school_id: str):
+    """クロール成功時にエラー情報をリセットする"""
+    try:
+        supabase.table("schools").update({
+            "crawl_error": None,
+            "crawl_error_count": 0,
+        }).eq("id", school_id).execute()
+    except Exception as e:
+        print(f"  エラーリセット失敗: {e}")
+
+
 def fetch_pdf(url):
-    """PDFをダウンロードしてテキストを抽出する"""
     try:
         print("  PDFダウンロード中: " + url)
         resp = requests.get(url, headers=HEADERS, timeout=30, verify=False)
@@ -68,7 +95,6 @@ def fetch_pdf(url):
 
 
 def fetch_html(url):
-    """HTMLページのテキストを取得する"""
     try:
         print("  アクセス中: " + url)
         resp = requests.get(url, headers=HEADERS, timeout=15, verify=False)
@@ -76,7 +102,6 @@ def fetch_html(url):
         resp.encoding = resp.apparent_encoding
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # PDFリンクを探す
         pdf_links = []
         for a in soup.find_all("a", href=True):
             href = a["href"]
@@ -101,7 +126,6 @@ def fetch_html(url):
 
 
 def fetch_page(url):
-    """URLがPDFかHTMLかを判定して取得する"""
     if url.endswith(".pdf"):
         text = fetch_pdf(url)
         return text, []
@@ -123,8 +147,7 @@ def extract_events_with_llm(text, school_name):
         print("  " + str(len(events)) + "件のイベントを抽出")
         return events
     except Exception as e:
-        import traceback
-        print("  LLMエラー詳細: " + traceback.format_exc())
+        print("  LLMエラー: " + str(e))
         return []
 
 
@@ -169,23 +192,36 @@ def crawl_school(school):
     if not crawl_urls:
         print("  クロールURLが未設定です")
         return
+
     all_events = []
+    has_success = False
+
     for url in crawl_urls:
         text, pdf_links = fetch_page(url)
         if text:
+            has_success = True
             events = extract_events_with_llm(text, school["name"])
             all_events.extend(events)
-            # HTMLページ内のPDFリンクも解析
-            for pdf_url in pdf_links[:2]:  # 最大2つまで
+            for pdf_url in pdf_links[:2]:
                 delay = random.uniform(2, 4)
                 time.sleep(delay)
                 pdf_text = fetch_pdf(pdf_url)
                 if pdf_text:
                     pdf_events = extract_events_with_llm(pdf_text, school["name"])
                     all_events.extend(pdf_events)
+        else:
+            # 取得失敗→エラーを記録
+            error_msg = f"URL取得失敗: {url}"
+            record_error(school["id"], error_msg)
+
         delay = random.uniform(CRAWL_DELAY_MIN, CRAWL_DELAY_MAX)
         print("  " + str(round(delay, 1)) + "秒待機...")
         time.sleep(delay)
+
+    # 成功した場合はエラーをリセット
+    if has_success:
+        clear_error(school["id"])
+
     save_events(school["id"], all_events, crawl_urls[0])
 
 
@@ -206,6 +242,13 @@ def main():
     print("\n" + "="*60)
     print("クロール完了！")
     print("="*60)
+
+    # エラーが出ている学校を表示
+    error_schools = supabase.table("schools").select("name, crawl_error, crawl_error_count").gt("crawl_error_count", 0).execute()
+    if error_schools.data:
+        print("\n⚠️ エラーが発生している学校:")
+        for s in error_schools.data:
+            print(f"  [{s['crawl_error_count']}回] {s['name']}: {s['crawl_error']}")
 
 
 if __name__ == "__main__":
