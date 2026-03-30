@@ -2,6 +2,7 @@ import os
 import json
 import time
 import random
+import hashlib
 import requests
 import io
 from bs4 import BeautifulSoup
@@ -43,14 +44,17 @@ SYSTEM_PROMPT = (
 )
 
 
+def make_hash(text: str) -> str:
+    """テキストのMD5ハッシュを生成する"""
+    return hashlib.md5(text.encode()).hexdigest()
+
+
 def record_error(school_id: str, error_msg: str):
-    """クロールエラーをDBに記録する"""
     try:
-        # 現在のerror_countを取得してインクリメント
         result = supabase.table("schools").select("crawl_error_count").eq("id", school_id).execute()
         current_count = result.data[0].get("crawl_error_count", 0) if result.data else 0
         supabase.table("schools").update({
-            "crawl_error": error_msg[:500],  # 500文字以内に収める
+            "crawl_error": error_msg[:500],
             "crawl_error_count": current_count + 1,
             "last_crawled_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", school_id).execute()
@@ -60,7 +64,6 @@ def record_error(school_id: str, error_msg: str):
 
 
 def clear_error(school_id: str):
-    """クロール成功時にエラー情報をリセットする"""
     try:
         supabase.table("schools").update({
             "crawl_error": None,
@@ -194,23 +197,21 @@ def crawl_school(school):
         return
 
     all_events = []
+    all_texts = []
     has_success = False
 
     for url in crawl_urls:
         text, pdf_links = fetch_page(url)
         if text:
             has_success = True
-            events = extract_events_with_llm(text, school["name"])
-            all_events.extend(events)
+            all_texts.append(text)
             for pdf_url in pdf_links[:2]:
                 delay = random.uniform(2, 4)
                 time.sleep(delay)
                 pdf_text = fetch_pdf(pdf_url)
                 if pdf_text:
-                    pdf_events = extract_events_with_llm(pdf_text, school["name"])
-                    all_events.extend(pdf_events)
+                    all_texts.append(pdf_text)
         else:
-            # 取得失敗→エラーを記録
             error_msg = f"URL取得失敗: {url}"
             record_error(school["id"], error_msg)
 
@@ -218,10 +219,35 @@ def crawl_school(school):
         print("  " + str(round(delay, 1)) + "秒待機...")
         time.sleep(delay)
 
-    # 成功した場合はエラーをリセット
-    if has_success:
-        clear_error(school["id"])
+    if not has_success:
+        return
 
+    # 差分チェック：ハッシュが同じならLLMをスキップ
+    combined_text = "\n".join(all_texts)
+    new_hash = make_hash(combined_text)
+    old_hash = school.get("crawl_hash")
+
+    if old_hash and old_hash == new_hash:
+        print("  ✅ ページ内容に変化なし → LLMスキップ")
+        clear_error(school["id"])
+        supabase.table("schools").update({
+            "last_crawled_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", school["id"]).execute()
+        return
+
+    print("  🔄 ページ内容が変化 → LLM解析実行")
+
+    # LLM解析
+    for text in all_texts:
+        events = extract_events_with_llm(text, school["name"])
+        all_events.extend(events)
+
+    # ハッシュを更新
+    supabase.table("schools").update({
+        "crawl_hash": new_hash
+    }).eq("id", school["id"]).execute()
+
+    clear_error(school["id"])
     save_events(school["id"], all_events, crawl_urls[0])
 
 
@@ -236,9 +262,12 @@ def main():
         print("学校データがありません。")
         return
     print(str(len(schools)) + "校が対象です")
+
+    skipped = 0
     for i, school in enumerate(schools, 1):
         print("\n[" + str(i) + "/" + str(len(schools)) + "]", end="")
         crawl_school(school)
+
     print("\n" + "="*60)
     print("クロール完了！")
     print("="*60)
@@ -249,6 +278,8 @@ def main():
         print("\n⚠️ エラーが発生している学校:")
         for s in error_schools.data:
             print(f"  [{s['crawl_error_count']}回] {s['name']}: {s['crawl_error']}")
+    else:
+        print("\n✅ エラーなし")
 
 
 if __name__ == "__main__":
