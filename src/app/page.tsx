@@ -16,7 +16,7 @@ const INITIAL_FILTERS: FilterState = {
   distanceKm: 999,
   schoolFilter: 'all',
   keyword: '',
-  sortBy: 'date',
+  sortBy: 'new',
 }
 
 function matchesFilter(school: SchoolWithEvents, filter: SchoolFilter): boolean {
@@ -37,6 +37,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [usingFallback, setUsingFallback] = useState(false)
   const [selectedSchool, setSelectedSchool] = useState<SchoolWithEvents | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -102,6 +103,8 @@ export default function HomePage() {
     senmon:       results.filter(s => s.school_type === 'senmon').length,
   }), [results])
 
+  const hasActiveSearch = filters.middleSchoolId || filters.keyword.trim() || filters.distanceKm < 999
+
   return (
     <>
       <Header />
@@ -114,19 +117,72 @@ export default function HomePage() {
         </div>
       )}
       <HeroSection />
-      <SearchPanel
-        middleSchools={middleSchools}
-        pending={pendingFilters}
-        onChange={setPendingFilters}
-        onSearch={() => setFilters({ ...pendingFilters })}
-        onReset={() => { setPendingFilters(INITIAL_FILTERS); setFilters(INITIAL_FILTERS) }}
-      />
+
+      {/* コントロールバー */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: 'white', borderBottom: '1px solid var(--border)',
+        boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+      }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 16px' }}>
+
+          {/* 絞り込みパネル（開閉） */}
+          {showSearch ? (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>🔍 絞り込み検索</span>
+                <button
+                  onClick={() => setShowSearch(false)}
+                  style={{
+                    background: 'none', border: '1.5px solid var(--border)',
+                    borderRadius: 999, padding: '4px 12px',
+                    fontSize: 12, color: 'var(--text-muted)',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  ✕ 閉じる
+                </button>
+              </div>
+              <SearchPanel
+                middleSchools={middleSchools}
+                pending={pendingFilters}
+                onChange={setPendingFilters}
+                onSearch={() => { setFilters({ ...pendingFilters }); setShowSearch(false) }}
+                onReset={() => { setPendingFilters(INITIAL_FILTERS); setFilters(INITIAL_FILTERS) }}
+              />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {/* タブフィルター */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <TypeFilterTabs
+                  active={filters.schoolFilter}
+                  counts={counts}
+                  onChange={(f) => setFilters(prev => ({ ...prev, schoolFilter: f as SchoolFilter }))}
+                />
+              </div>
+              {/* 絞り込みボタン */}
+              <button
+                onClick={() => setShowSearch(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: hasActiveSearch ? 'var(--navy)' : 'white',
+                  color: hasActiveSearch ? 'white' : 'var(--text-muted)',
+                  border: `1.5px solid ${hasActiveSearch ? 'var(--navy)' : 'var(--border)'}`,
+                  borderRadius: 999, padding: '6px 14px',
+                  fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                🔍 絞り込み{hasActiveSearch ? ' ●' : ''}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
-        <TypeFilterTabs
-          active={filters.schoolFilter}
-          counts={counts}
-          onChange={(f) => setFilters(prev => ({ ...prev, schoolFilter: f as SchoolFilter }))}
-        />
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginTop: 20, marginBottom: 16, gap: 12, flexWrap: 'wrap',
@@ -154,6 +210,7 @@ export default function HomePage() {
             <option value="date">開催日順</option>
           </select>
         </div>
+
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
