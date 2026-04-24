@@ -1,8 +1,7 @@
 /// 学校種別
-export type SchoolType = 'high' | 'tsushin' | 'senmon'
-
+export type SchoolType = 'high' | 'tsushin' | 'senmon' | 'senmon_kouto'
 // タブフィルター種別
-export type SchoolFilter = 'all' | 'high_public' | 'high_private' | 'tsushin' | 'senmon'
+export type SchoolFilter = 'all' | 'high_public' | 'high_private' | 'tsushin' | 'senmon' | 'senmon_kouto'
 
 // イベント（DBから取得した生データ）
 export interface Event {
