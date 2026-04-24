@@ -14,6 +14,7 @@ const TABS: { key: SchoolFilter; label: string; color: string }[] = [
   { key: 'high_private', label: '全日制（私立）', color: '#E67E22' },
   { key: 'tsushin',      label: '通信制',         color: '#7B68EE' },
   { key: 'senmon',       label: '専門学校',       color: '#D4A843' },
+  { key: 'senmon_kouto',  label: '高等専修学校',    color: '#2E8B57' },
 ]
 
 export default function TypeFilterTabs({ active, counts, onChange }: Props) {
