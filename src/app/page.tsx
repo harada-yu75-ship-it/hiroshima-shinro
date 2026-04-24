@@ -26,6 +26,7 @@ function matchesFilter(school: SchoolWithEvents, filter: SchoolFilter): boolean 
     case 'high_private': return school.school_type === 'high' && !school.is_public
     case 'tsushin':      return school.school_type === 'tsushin'
     case 'senmon':       return school.school_type === 'senmon'
+    case 'senmon_kouto':  return school.school_type === 'senmon_kouto'
   }
 }
 
@@ -101,6 +102,7 @@ export default function HomePage() {
     high_private: results.filter(s => s.school_type === 'high' && !s.is_public).length,
     tsushin:      results.filter(s => s.school_type === 'tsushin').length,
     senmon:       results.filter(s => s.school_type === 'senmon').length,
+    senmon_kouto:  results.filter(s => s.school_type === 'senmon_kouto').length,
   }), [results])
 
   const hasActiveSearch = filters.middleSchoolId || filters.keyword.trim() || filters.distanceKm < 999
