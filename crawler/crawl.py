@@ -40,13 +40,12 @@ SYSTEM_PROMPT = (
     "返却形式(JSON配列のみ、前後に説明文不要):\n"
     '[{"event_name":"名前","event_date":"YYYY-MM-DD","event_time":"時間","requires_application":true,"capacity":null,"notes":"備考","application_deadline":"YYYY-MM-DDまたはnull"}]\n'
     "注意:過去イベント除外、日程不明除外、中学生以外向け除外、見つからない場合は[]\n"
-    "application_deadlineは申込締切日。ページに記載がなければnull。\n"
+    "application_deadlineは申込締切日。ページに記載がなければnull。\n"  # ← 追加
     "現在は2026年です。令和7年=2025年、令和8年=2026年として日付を変換してください。"
 )
 
 
 def make_hash(text: str) -> str:
-    """テキストのMD5ハッシュを生成する"""
     return hashlib.md5(text.encode()).hexdigest()
 
 
@@ -176,6 +175,7 @@ def save_events(school_id, events, source_url):
                 "requires_application": ev.get("requires_application"),
                 "capacity": ev.get("capacity"),
                 "notes": ev.get("notes"),
+                "application_deadline": ev.get("application_deadline"),  # ← 追加
                 "source_url": source_url,
                 "is_verified": False
             })
@@ -223,7 +223,6 @@ def crawl_school(school):
     if not has_success:
         return
 
-    # 差分チェック：ハッシュが同じならLLMをスキップ
     combined_text = "\n".join(all_texts)
     new_hash = make_hash(combined_text)
     old_hash = school.get("crawl_hash")
@@ -238,12 +237,10 @@ def crawl_school(school):
 
     print("  🔄 ページ内容が変化 → LLM解析実行")
 
-    # LLM解析
     for text in all_texts:
         events = extract_events_with_llm(text, school["name"])
         all_events.extend(events)
 
-    # ハッシュを更新
     supabase.table("schools").update({
         "crawl_hash": new_hash
     }).eq("id", school["id"]).execute()
@@ -264,7 +261,6 @@ def main():
         return
     print(str(len(schools)) + "校が対象です")
 
-    skipped = 0
     for i, school in enumerate(schools, 1):
         print("\n[" + str(i) + "/" + str(len(schools)) + "]", end="")
         crawl_school(school)
@@ -273,7 +269,6 @@ def main():
     print("クロール完了！")
     print("="*60)
 
-    # エラーが出ている学校を表示
     error_schools = supabase.table("schools").select("name, crawl_error, crawl_error_count").gt("crawl_error_count", 0).execute()
     if error_schools.data:
         print("\n⚠️ エラーが発生している学校:")
