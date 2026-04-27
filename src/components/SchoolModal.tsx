@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import type { SchoolWithEvents } from '@/types'
 import { formatDateJa, formatDistance, isFutureOrToday } from '@/lib/utils'
 import { getDeadlineBadge } from '@/lib/deadline'
+import { getApplicationBadge } from '@/lib/application'
 
 interface Props {
   school: SchoolWithEvents
@@ -126,7 +127,8 @@ export default function SchoolModal({ school, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {events.map(ev => {
               const d = formatDateJa(ev.event_date)
-              const deadlineBadge = ev.requires_application ? getDeadlineBadge(ev.application_deadline) : null
+              const deadlineBadge = getDeadlineBadge(ev.application_deadline)
+              const appBadge = getApplicationBadge(ev.requires_application, ev.application_url)
               return (
                 <div key={ev.id} style={{
                   border: '1px solid var(--border)',
@@ -160,14 +162,15 @@ export default function SchoolModal({ school, onClose }: Props) {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                      {ev.requires_application !== null && (
+                      {appBadge && (
                         <span style={{
-                          background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
-                          color: ev.requires_application ? '#A07020' : '#2E7D32',
+                          background: appBadge.bg,
+                          color: appBadge.color,
+                          border: `1px solid ${appBadge.border}`,
                           padding: '3px 8px', borderRadius: 4,
                           fontSize: 11, fontWeight: 700,
                         }}>
-                          {ev.requires_application ? '要申込' : '申込不要'}
+                          {appBadge.label}
                         </span>
                       )}
                       {deadlineBadge && (
