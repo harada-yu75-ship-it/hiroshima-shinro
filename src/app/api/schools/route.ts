@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const keyword = searchParams.get('q')
-
   let schools: School[] = []
   let events: Event[] = []
   let usingFallback = false
@@ -25,16 +24,15 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('crawl_enabled', true)
       .order('name')
-
     if (schoolErr) throw schoolErr
     schools = schoolData ?? []
 
     const { data: eventData, error: eventErr } = await supabase
       .from('events')
       .select('*')
+      .eq('is_verified', true)           // ← 追加：確認済みのみ表示
       .gte('event_date', new Date().toISOString().split('T')[0])
       .order('event_date')
-
     if (eventErr) throw eventErr
     events = eventData ?? []
 
