@@ -14,6 +14,7 @@ export interface Event {
   capacity: number | null
   notes: string | null
   application_url: string | null
+  application_deadline: string | null
   source_url: string
   is_verified: boolean
   crawled_at: string
