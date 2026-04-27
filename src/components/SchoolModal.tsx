@@ -55,7 +55,6 @@ export default function SchoolModal({ school, onClose }: Props) {
           boxShadow: '0 24px 80px rgba(0,0,0,.28)',
         }}
       >
-        {/* ヘッダー */}
         <div style={{ height: 5, background: cfg.accent, borderRadius: '16px 16px 0 0' }} />
         <div style={{
           padding: '18px 22px 14px',
@@ -93,9 +92,7 @@ export default function SchoolModal({ school, onClose }: Props) {
           </button>
         </div>
 
-        {/* ボディ */}
         <div style={{ padding: '18px 22px 24px' }}>
-          {/* 学校情報 */}
           <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               📍 {school.address}
@@ -118,7 +115,6 @@ export default function SchoolModal({ school, onClose }: Props) {
             </div>
           </div>
 
-          {/* イベント一覧 */}
           <div style={{
             fontWeight: 700, fontSize: 13, color: 'var(--navy)',
             borderBottom: `2px solid ${cfg.accent}`,
@@ -137,7 +133,6 @@ export default function SchoolModal({ school, onClose }: Props) {
                   borderRadius: 'var(--radius-sm)',
                   overflow: 'hidden',
                 }}>
-                  {/* イベントヘッダー */}
                   <div style={{
                     padding: '10px 14px 8px',
                     background: 'var(--cream)',
@@ -189,7 +184,6 @@ export default function SchoolModal({ school, onClose }: Props) {
                     </div>
                   </div>
 
-                  {/* 詳細情報 */}
                   {(ev.notes || ev.capacity || ev.application_url) && (
                     <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
                       {ev.capacity && <div>👥 定員：{ev.capacity}名</div>}
@@ -214,7 +208,6 @@ export default function SchoolModal({ school, onClose }: Props) {
             })}
           </div>
 
-          {/* 未確認データの注意書き */}
           {events.some(e => !e.is_verified) && (
             <div style={{
               marginTop: 14,
