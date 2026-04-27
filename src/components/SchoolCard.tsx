@@ -3,6 +3,7 @@
 import type { SchoolWithEvents } from '@/types'
 import { formatDateJa, formatDistance } from '@/lib/utils'
 import { getDeadlineBadge } from '@/lib/deadline'
+import { getApplicationBadge } from '@/lib/application'
 
 interface Props {
   school: SchoolWithEvents
@@ -75,7 +76,8 @@ export default function SchoolCard({ school, animationDelay, onClick }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {futureEvents.map(ev => {
             const d = formatDateJa(ev.event_date)
-            const deadlineBadge = ev.requires_application ? getDeadlineBadge(ev.application_deadline) : null
+            const deadlineBadge = getDeadlineBadge(ev.application_deadline)
+            const appBadge = getApplicationBadge(ev.requires_application, ev.application_url)
             return (
               <div key={ev.id} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -95,13 +97,14 @@ export default function SchoolCard({ school, animationDelay, onClick }: Props) {
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{ev.event_name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                     {ev.event_time && <span>🕐 {ev.event_time}</span>}
-                    {ev.requires_application !== null && (
+                    {appBadge && (
                       <span style={{
-                        background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
-                        color: ev.requires_application ? '#A07020' : '#2E7D32',
+                        background: appBadge.bg,
+                        color: appBadge.color,
+                        border: `1px solid ${appBadge.border}`,
                         padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 700,
                       }}>
-                        {ev.requires_application ? '要申込' : '申込不要'}
+                        {appBadge.label}
                       </span>
                     )}
                     {deadlineBadge && (
