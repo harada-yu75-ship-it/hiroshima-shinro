@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import type { SchoolWithEvents } from '@/types'
 import { formatDateJa, formatDistance, isFutureOrToday } from '@/lib/utils'
+import { getDeadlineBadge } from '@/lib/deadline'
 
 interface Props {
   school: SchoolWithEvents
@@ -10,9 +11,9 @@ interface Props {
 }
 
 const TYPE_CONFIG = {
-  high:    { label: '全日制高校', bg: '#FDECEA', color: '#C0392B', accent: '#C0392B' },
-  tsushin: { label: '通信制高校', bg: '#EDE9FF', color: '#5B4FCF', accent: '#7B68EE' },
-  senmon:  { label: '専門学校',   bg: '#FEF7E0', color: '#A07020', accent: '#D4A843' },
+  high:         { label: '全日制高校',   bg: '#FDECEA', color: '#C0392B', accent: '#C0392B' },
+  tsushin:      { label: '通信制高校',   bg: '#EDE9FF', color: '#5B4FCF', accent: '#7B68EE' },
+  senmon:       { label: '専門学校',     bg: '#FEF7E0', color: '#A07020', accent: '#D4A843' },
   senmon_kouto: { label: '高等専修学校', bg: '#E8F5E9', color: '#2E8B57', accent: '#2E8B57' },
 }
 
@@ -21,7 +22,6 @@ export default function SchoolModal({ school, onClose }: Props) {
   const events = school.events.filter(e => isFutureOrToday(e.event_date))
     .sort((a, b) => a.event_date.localeCompare(b.event_date))
 
-  // ESCキーで閉じる
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
@@ -107,7 +107,7 @@ export default function SchoolModal({ school, onClose }: Props) {
             )}
             <div style={{ fontSize: 12 }}>
               🔗{' '}
-              <a
+              
                 href={school.official_url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -130,6 +130,7 @@ export default function SchoolModal({ school, onClose }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {events.map(ev => {
               const d = formatDateJa(ev.event_date)
+              const deadlineBadge = ev.requires_application ? getDeadlineBadge(ev.application_deadline) : null
               return (
                 <div key={ev.id} style={{
                   border: '1px solid var(--border)',
@@ -153,7 +154,7 @@ export default function SchoolModal({ school, onClose }: Props) {
                         （{d.weekday}）
                       </div>
                     </div>
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
                         {ev.event_name}
                       </div>
@@ -163,17 +164,29 @@ export default function SchoolModal({ school, onClose }: Props) {
                         </div>
                       )}
                     </div>
-                    {ev.requires_application !== null && (
-                      <span style={{
-                        marginLeft: 'auto',
-                        background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
-                        color: ev.requires_application ? '#A07020' : '#2E7D32',
-                        padding: '3px 8px', borderRadius: 4,
-                        fontSize: 11, fontWeight: 700, flexShrink: 0,
-                      }}>
-                        {ev.requires_application ? '要申込' : '申込不要'}
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                      {ev.requires_application !== null && (
+                        <span style={{
+                          background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
+                          color: ev.requires_application ? '#A07020' : '#2E7D32',
+                          padding: '3px 8px', borderRadius: 4,
+                          fontSize: 11, fontWeight: 700,
+                        }}>
+                          {ev.requires_application ? '要申込' : '申込不要'}
+                        </span>
+                      )}
+                      {deadlineBadge && (
+                        <span style={{
+                          background: deadlineBadge.bg,
+                          color: deadlineBadge.color,
+                          border: `1px solid ${deadlineBadge.border}`,
+                          padding: '3px 8px', borderRadius: 4,
+                          fontSize: 11, fontWeight: 700,
+                        }}>
+                          {deadlineBadge.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* 詳細情報 */}
@@ -184,7 +197,7 @@ export default function SchoolModal({ school, onClose }: Props) {
                       {ev.application_url && (
                         <div>
                           📋{' '}
-                          <a
+                          
                             href={ev.application_url}
                             target="_blank"
                             rel="noopener noreferrer"
