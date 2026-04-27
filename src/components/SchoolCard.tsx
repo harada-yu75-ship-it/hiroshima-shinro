@@ -2,6 +2,7 @@
 
 import type { SchoolWithEvents } from '@/types'
 import { formatDateJa, formatDistance } from '@/lib/utils'
+import { getDeadlineBadge } from '@/lib/deadline'
 
 interface Props {
   school: SchoolWithEvents
@@ -74,6 +75,7 @@ export default function SchoolCard({ school, animationDelay, onClick }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {futureEvents.map(ev => {
             const d = formatDateJa(ev.event_date)
+            const deadlineBadge = ev.requires_application ? getDeadlineBadge(ev.application_deadline) : null
             return (
               <div key={ev.id} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -91,7 +93,7 @@ export default function SchoolCard({ school, animationDelay, onClick }: Props) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{ev.event_name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                     {ev.event_time && <span>🕐 {ev.event_time}</span>}
                     {ev.requires_application !== null && (
                       <span style={{
@@ -100,6 +102,16 @@ export default function SchoolCard({ school, animationDelay, onClick }: Props) {
                         padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 700,
                       }}>
                         {ev.requires_application ? '要申込' : '申込不要'}
+                      </span>
+                    )}
+                    {deadlineBadge && (
+                      <span style={{
+                        background: deadlineBadge.bg,
+                        color: deadlineBadge.color,
+                        border: `1px solid ${deadlineBadge.border}`,
+                        padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 700,
+                      }}>
+                        {deadlineBadge.label}
                       </span>
                     )}
                   </div>
