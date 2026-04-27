@@ -104,7 +104,7 @@ export default function SchoolModal({ school, onClose }: Props) {
             )}
             <div style={{ fontSize: 12 }}>
               🔗{' '}
-              
+              <a
                 href={school.official_url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -191,7 +191,7 @@ export default function SchoolModal({ school, onClose }: Props) {
                       {ev.application_url && (
                         <div>
                           📋{' '}
-                          
+                          <a
                             href={ev.application_url}
                             target="_blank"
                             rel="noopener noreferrer"
