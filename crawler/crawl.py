@@ -38,9 +38,10 @@ SYSTEM_PROMPT = (
     "あなたは学校Webサイトからオープンスクール・学校説明会等の情報を抽出するエージェントです。\n"
     "以下のテキストから、中学生向けのイベント情報を全て抽出し、JSON配列のみで返してください。\n"
     "返却形式(JSON配列のみ、前後に説明文不要):\n"
-    '[{"event_name":"名前","event_date":"YYYY-MM-DD","event_time":"時間","requires_application":true,"capacity":null,"notes":"備考","application_deadline":"YYYY-MM-DDまたはnull"}]\n'
+    '[{"event_name":"名前","event_date":"YYYY-MM-DD","event_time":"時間","requires_application":true,"capacity":null,"notes":"備考","application_deadline":"YYYY-MM-DDまたはnull","application_url":"URLまたはnull"}]\n'
     "注意:過去イベント除外、日程不明除外、中学生以外向け除外、見つからない場合は[]\n"
-    "application_deadlineは申込締切日。ページに記載がなければnull。\n"  # ← 追加
+    "application_deadlineは申込締切日。ページに記載がなければnull。\n"
+    "application_urlは申込フォームや申込ページへの直接URL。記載がなければnull。\n"
     "現在は2026年です。令和7年=2025年、令和8年=2026年として日付を変換してください。"
 )
 
@@ -175,7 +176,8 @@ def save_events(school_id, events, source_url):
                 "requires_application": ev.get("requires_application"),
                 "capacity": ev.get("capacity"),
                 "notes": ev.get("notes"),
-                "application_deadline": ev.get("application_deadline"),  # ← 追加
+                "application_deadline": ev.get("application_deadline"),
+                "application_url": ev.get("application_url"),  # ← 追加
                 "source_url": source_url,
                 "is_verified": False
             })
