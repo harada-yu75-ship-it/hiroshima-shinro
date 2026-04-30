@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 // 未確認イベント一覧取得
 export async function GET() {
   const { data, error } = await supabase
     .from('events')
-    .select(`
-      *,
-      schools (name, official_url)
-    `)
+    .select(`*, schools (name, official_url)`)
     .eq('is_verified', false)
     .gte('event_date', new Date().toISOString().split('T')[0])
     .order('event_date')
@@ -22,17 +24,21 @@ export async function PATCH(request: NextRequest) {
   const { id, action, data } = await request.json()
 
   if (action === 'approve') {
-    const { error } = await supabase
-      .from('events')
-      .update({ is_verified: true } as any)
-      .eq('id', id)
-    if (error) return NextResponse.json({ error }, { status: 500 })
+    const { error } = await supabase.rpc('approve_event', { event_id: id })
+    if (error) {
+      // RPCがなければ直接UPDATE
+      const { error: err2 } = await supabase
+        .from('events')
+        .update({ is_verified: true } as never)
+        .eq('id', id)
+      if (err2) return NextResponse.json({ error: err2 }, { status: 500 })
+    }
   }
 
   if (action === 'update') {
     const { error } = await supabase
       .from('events')
-      .update({ ...data, is_verified: true } as any)
+      .update({ ...data, is_verified: true } as never)
       .eq('id', id)
     if (error) return NextResponse.json({ error }, { status: 500 })
   }
