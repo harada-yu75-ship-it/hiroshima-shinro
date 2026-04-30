@@ -3,24 +3,7 @@
 export default function HeroSection() {
   return (
     <>
-      {/* ① デモモード・本格運用お知らせバナー */}
-      <div style={{
-        background: '#FFF8E7',
-        borderBottom: '1px solid #F0C040',
-        padding: '10px 20px',
-      }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <p style={{ fontSize: 13, color: '#7A5000', lineHeight: 1.8, margin: 0 }}>
-            <span style={{ fontWeight: 700, color: '#B8860B' }}>【現在はデモモードで公開中です】</span>　
-            現在表示されているイベント情報はサンプルデータであり、実際の各校の情報とは異なります。
-            <br />
-            <span style={{ fontWeight: 700, color: '#2E75B6' }}>５月より本格運用開始予定。</span>　
-            ４月末までデモモードで公開中です。５月以降は各校の実際のオープンスクール情報を自動収集・掲載します。
-          </p>
-        </div>
-      </div>
-
-      {/* ② ヒーローセクション */}
+      {/* ヒーローセクション */}
       <section style={{
         background: 'linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 55%, #2C4A8A 100%)',
         color: 'white',
@@ -39,7 +22,6 @@ export default function HeroSection() {
           width: 160, height: 160, borderRadius: '50%',
           background: 'rgba(212,168,67,.10)', pointerEvents: 'none',
         }} />
-
         <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative' }}>
           <p style={{
             fontSize: 11, letterSpacing: '.15em',
