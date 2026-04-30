@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest) {
   if (action === 'approve') {
     const { error } = await supabase
       .from('events')
-      .update({ is_verified: true })
+      .update({ is_verified: true } as any)
       .eq('id', id)
     if (error) return NextResponse.json({ error }, { status: 500 })
   }
@@ -32,7 +32,7 @@ export async function PATCH(request: NextRequest) {
   if (action === 'update') {
     const { error } = await supabase
       .from('events')
-      .update({ ...data, is_verified: true })
+      .update({ ...data, is_verified: true } as any)
       .eq('id', id)
     if (error) return NextResponse.json({ error }, { status: 500 })
   }
