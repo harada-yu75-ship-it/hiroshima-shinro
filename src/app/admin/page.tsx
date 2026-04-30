@@ -51,7 +51,7 @@ export default function AdminPage() {
     })
     setEditingId(null)
     setEditData({})
-    fetchEvents()
+    await fetchEvents()  // awaitを追加
   }
 
   const handleDelete = async (id: string) => {
