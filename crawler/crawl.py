@@ -40,6 +40,11 @@ SYSTEM_PROMPT = (
     "返却形式(JSON配列のみ、前後に説明文不要):\n"
     '[{"event_name":"名前","event_date":"YYYY-MM-DD","event_time":"時間","requires_application":true,"capacity":null,"notes":"備考","application_deadline":"YYYY-MM-DDまたはnull","application_url":"URLまたはnull"}]\n'
     "注意:過去イベント除外、日程不明除外、中学生以外向け除外、見つからない場合は[]\n"
+    "requires_applicationの判定ルール:\n"
+    "・「申込不要」「予約不要」と明記されている場合のみfalse\n"
+    "・「申込については随時掲載」「申込方法は後日案内」「先着〇名」「定員〇名」などの表記はtrue\n"
+    "・不明な場合はtrue\n"
+    "capacityは「先着〇名」「定員〇名」など人数の記載があれば数値で、なければnull。\n"
     "application_deadlineは申込締切日。ページに記載がなければnull。\n"
     "application_urlは申込フォームや申込ページへの直接URL。記載がなければnull。\n"
     "現在は2026年です。令和7年=2025年、令和8年=2026年として日付を変換してください。"
