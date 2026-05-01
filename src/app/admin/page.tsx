@@ -24,7 +24,7 @@ interface School {
 }
 
 const EMPTY_FORM = {
-  school_id: '',
+  school_name: '',
   event_name: '',
   event_date: '',
   event_time: '',
@@ -44,6 +44,8 @@ export default function AdminPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [addForm, setAddForm] = useState(EMPTY_FORM)
   const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [suggestions, setSuggestions] = useState<School[]>([])
   const router = useRouter()
 
   const fetchEvents = async () => {
@@ -57,15 +59,26 @@ export default function AdminPage() {
   const fetchSchools = async () => {
     const res = await fetch('/api/admin/schools')
     const json = await res.json()
-    setSchools((json.schools ?? []).map((s: any) => ({
-      id: s.id, name: s.name, official_url: s.official_url
-    })).sort((a: School, b: School) => a.name.localeCompare(b.name, 'ja')))
+    setSchools((json.schools ?? []).sort((a: School, b: School) =>
+      a.name.localeCompare(b.name, 'ja')
+    ))
   }
 
   useEffect(() => {
     fetchEvents()
     fetchSchools()
   }, [])
+
+  // 学校名入力時にサジェスト
+  const handleSchoolNameChange = (value: string) => {
+    setAddForm(f => ({ ...f, school_name: value }))
+    if (value.length >= 1) {
+      const matched = schools.filter(s => s.name.includes(value))
+      setSuggestions(matched.slice(0, 5))
+    } else {
+      setSuggestions([])
+    }
+  }
 
   const handleApprove = async (id: string) => {
     await fetch('/api/admin/events', {
@@ -98,16 +111,22 @@ export default function AdminPage() {
   }
 
   const handleAdd = async () => {
-    if (!addForm.school_id || !addForm.event_name || !addForm.event_date) {
-      alert('学校・イベント名・開催日は必須です')
+    setAddError('')
+    if (!addForm.school_name || !addForm.event_name || !addForm.event_date) {
+      setAddError('学校名・イベント名・開催日は必須です')
+      return
+    }
+    const school = schools.find(s => s.name === addForm.school_name)
+    if (!school) {
+      setAddError(`「${addForm.school_name}」は登録されていない学校名です。サジェストから選択してください。`)
       return
     }
     setAdding(true)
-    await fetch('/api/admin/events', {
+    const res = await fetch('/api/admin/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        school_id: addForm.school_id,
+        school_id: school.id,
         event_name: addForm.event_name,
         event_date: addForm.event_date,
         event_time: addForm.event_time || null,
@@ -116,14 +135,19 @@ export default function AdminPage() {
         notes: addForm.notes || null,
         application_url: addForm.application_url || null,
         application_deadline: addForm.application_deadline || null,
-        source_url: schools.find(s => s.id === addForm.school_id)?.official_url ?? '',
+        source_url: school.official_url,
         is_verified: true,
       }),
     })
-    setAddForm(EMPTY_FORM)
-    setShowAddForm(false)
+    if (!res.ok) {
+      setAddError('登録に失敗しました')
+    } else {
+      setAddForm(EMPTY_FORM)
+      setShowAddForm(false)
+      setSuggestions([])
+      await fetchEvents()
+    }
     setAdding(false)
-    await fetchEvents()
   }
 
   const handleLogout = async () => {
@@ -203,19 +227,44 @@ export default function AdminPage() {
             <div style={{ padding: '16px 18px', borderTop: '1px solid #E5E7EB' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-                {/* 学校選択 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={labelStyle}>学校名 *</label>
-                  <select
-                    value={addForm.school_id}
-                    onChange={e => setAddForm(f => ({ ...f, school_id: e.target.value }))}
-                    style={{ ...inputStyle, flex: 1 }}
-                  >
-                    <option value="">学校を選択してください</option>
-                    {schools.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                {/* 学校名入力（サジェスト付き） */}
+                <div style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={labelStyle}>学校名 *</label>
+                    <input
+                      type="text"
+                      placeholder="学校名を入力（例：広島県立○○高等学校）"
+                      value={addForm.school_name}
+                      onChange={e => handleSchoolNameChange(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  {suggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute', left: 88, right: 0, top: '100%',
+                      background: 'white', border: '1.5px solid #E5E7EB',
+                      borderRadius: 6, zIndex: 10,
+                      boxShadow: '0 4px 12px rgba(0,0,0,.1)',
+                    }}>
+                      {suggestions.map(s => (
+                        <div
+                          key={s.id}
+                          onClick={() => {
+                            setAddForm(f => ({ ...f, school_name: s.name }))
+                            setSuggestions([])
+                          }}
+                          style={{
+                            padding: '8px 12px', cursor: 'pointer',
+                            fontSize: 13, borderBottom: '1px solid #F3F4F6',
+                          }}
+                          onMouseOver={e => (e.currentTarget.style.background = '#F0F7FF')}
+                          onMouseOut={e => (e.currentTarget.style.background = 'white')}
+                        >
+                          {s.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* 各フィールド */}
@@ -246,13 +295,17 @@ export default function AdminPage() {
                   <select
                     value={addForm.requires_application}
                     onChange={e => setAddForm(f => ({ ...f, requires_application: e.target.value as any }))}
-                    style={{ ...inputStyle, flex: 'none', width: 120 }}
+                    style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
                   >
                     <option value="">不明</option>
                     <option value="true">要申込</option>
                     <option value="false">申込不要</option>
                   </select>
                 </div>
+
+                {addError && (
+                  <div style={{ color: '#DC2626', fontSize: 12 }}>⚠️ {addError}</div>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                   <button
@@ -267,7 +320,7 @@ export default function AdminPage() {
                     {adding ? '登録中...' : '✅ 登録してサイトに掲載'}
                   </button>
                   <button
-                    onClick={() => { setAddForm(EMPTY_FORM); setShowAddForm(false) }}
+                    onClick={() => { setAddForm(EMPTY_FORM); setShowAddForm(false); setAddError('') }}
                     style={{
                       background: '#F3F4F6', color: '#555', border: 'none',
                       borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer',
