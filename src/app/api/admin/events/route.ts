@@ -6,12 +6,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// 未確認イベント一覧取得
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const verified = searchParams.get('verified') === 'true'
+
   const { data, error } = await supabase
     .from('events')
     .select(`*, schools (name, official_url)`)
-    .eq('is_verified', false)
+    .eq('is_verified', verified)
     .gte('event_date', new Date().toISOString().split('T')[0])
     .order('event_date')
 
@@ -19,7 +21,6 @@ export async function GET() {
   return NextResponse.json({ events: data })
 }
 
-// 手動登録
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { error } = await supabase
@@ -29,7 +30,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// 承認・修正
 export async function PATCH(request: NextRequest) {
   const { id, action, data } = await request.json()
 
@@ -55,7 +55,6 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// 削除
 export async function DELETE(request: NextRequest) {
   const { id } = await request.json()
   const { error } = await supabase
