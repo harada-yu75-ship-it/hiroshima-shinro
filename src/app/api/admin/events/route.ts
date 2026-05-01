@@ -19,6 +19,16 @@ export async function GET() {
   return NextResponse.json({ events: data })
 }
 
+// 手動登録
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { error } = await supabase
+    .from('events')
+    .insert([body] as never)
+  if (error) return NextResponse.json({ error }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
 // 承認・修正
 export async function PATCH(request: NextRequest) {
   const { id, action, data } = await request.json()
@@ -26,7 +36,6 @@ export async function PATCH(request: NextRequest) {
   if (action === 'approve') {
     const { error } = await supabase.rpc('approve_event', { event_id: id })
     if (error) {
-      // RPCがなければ直接UPDATE
       const { error: err2 } = await supabase
         .from('events')
         .update({ is_verified: true } as never)
