@@ -55,7 +55,7 @@ export default function AdminPage() {
   }
 
   const fetchSchools = async () => {
-    const res = await fetch('/api/schools')
+    const res = await fetch('/api/admin/schools')
     const json = await res.json()
     setSchools((json.schools ?? []).map((s: any) => ({
       id: s.id, name: s.name, official_url: s.official_url
