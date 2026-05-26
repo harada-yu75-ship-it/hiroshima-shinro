@@ -171,8 +171,16 @@ def save_events(school_id, events, source_url):
             print("  今日以降のイベントなし")
             return
         supabase.table("events").delete().eq("school_id", school_id).eq("is_verified", False).execute()
+        
+        # 承認済みイベントの日付を取得
+        verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
+        verified_dates = {v["event_date"] for v in (verified.data or [])}
+        
         rows = []
         for ev in future:
+            if ev.get("event_date") in verified_dates:
+                print(f"  スキップ（承認済み日付）: {ev.get('event_date')} {ev.get('event_name')}")
+                continue
             rows.append({
                 "school_id": school_id,
                 "event_name": ev.get("event_name", ""),
