@@ -47,6 +47,7 @@ export default function AdminPage() {
   const [addForm, setAddForm] = useState(EMPTY_FORM)
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
+  const [approvingSchool, setApprovingSchool] = useState<string | null>(null)
   const router = useRouter()
 
   const fetchEvents = async () => {
@@ -82,6 +83,20 @@ export default function AdminPage() {
       body: JSON.stringify({ id, action: 'approve' }),
     })
     fetchEvents()
+  }
+
+  // 学校ごとの一括承認
+  const handleApproveAll = async (schoolName: string, schoolEvents: Event[]) => {
+    setApprovingSchool(schoolName)
+    await Promise.all(schoolEvents.map(ev =>
+      fetch('/api/admin/events', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ev.id, action: 'approve' }),
+      })
+    ))
+    setApprovingSchool(null)
+    await fetchEvents()
   }
 
   const handleUpdate = async (id: string) => {
@@ -163,6 +178,14 @@ export default function AdminPage() {
     })
   }
 
+  // 学校ごとにグループ化
+  const groupedEvents = events.reduce((acc, ev) => {
+    const name = ev.schools.name
+    if (!acc[name]) acc[name] = []
+    acc[name].push(ev)
+    return acc
+  }, {} as Record<string, Event[]>)
+
   const inputStyle = {
     flex: 1, padding: '5px 8px',
     border: '1.5px solid #E5E7EB', borderRadius: 6,
@@ -173,24 +196,15 @@ export default function AdminPage() {
 
   const EventCard = ({ ev, isVerified }: { ev: Event; isVerified: boolean }) => (
     <div style={{
-      background: 'white', borderRadius: 10,
-      boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+      background: 'white', borderRadius: 8,
       border: `1px solid ${isVerified ? '#D1FAE5' : '#E5E7EB'}`,
       overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 18px' }}>
+      <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>
-              🏫 {ev.schools.name}　
-              <a href={ev.schools.official_url} target="_blank" rel="noopener noreferrer"
-                style={{ color: '#2563EB', fontSize: 11 }}>
-                公式サイト →
-              </a>
-            </div>
-
             {editingId === ev.id ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
                   { label: 'イベント名', key: 'event_name', type: 'text' },
                   { label: '開催日', key: 'event_date', type: 'date' },
@@ -227,7 +241,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#1a2742', marginBottom: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 3 }}>
                   {ev.event_name}
                 </div>
                 <div style={{ fontSize: 12, color: '#555', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -432,8 +446,57 @@ export default function AdminPage() {
             未確認のイベントはありません
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-            {events.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+            {Object.entries(groupedEvents).map(([schoolName, schoolEvents]) => (
+              <div key={schoolName} style={{
+                background: 'white', borderRadius: 10,
+                boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+                border: '1px solid #E5E7EB', overflow: 'hidden',
+              }}>
+                {/* 学校ヘッダー */}
+                <div style={{
+                  padding: '12px 16px',
+                  background: '#F8FAFC',
+                  borderBottom: '1px solid #E5E7EB',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <div>
+                    <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>
+                      🏫 {schoolName}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>
+                      {schoolEvents.length}件
+                    </span>
+                    
+                      href={schoolEvents[0].schools.official_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}
+                    >
+                      公式サイト →
+                    </a>
+                  </div>
+                  <button
+                    onClick={() => handleApproveAll(schoolName, schoolEvents)}
+                    disabled={approvingSchool === schoolName}
+                    style={{
+                      background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A',
+                      color: 'white', border: 'none',
+                      borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                      fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
+                  </button>
+                </div>
+
+                {/* イベント一覧 */}
+                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {schoolEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} />)}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
