@@ -196,6 +196,12 @@ def save_events(school_id, events, source_url):
             })
         supabase.table("events").insert(rows).execute()
         print("  " + str(len(rows)) + "件をSupabaseに保存")
+        
+        # 承認済みと同じ学校・日付の未確認イベントを削除
+        verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
+        for v in (verified.data or []):
+            supabase.table("events").delete().eq("school_id", school_id).eq("event_date", v["event_date"]).eq("is_verified", False).execute()
+        
         supabase.table("schools").update({
             "last_crawled_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", school_id).execute()
