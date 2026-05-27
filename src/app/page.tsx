@@ -96,14 +96,28 @@ export default function HomePage() {
     return result
   }, [allSchools, filters, selectedMiddle])
 
+  const allResults = useMemo((): SchoolWithEvents[] => {
+    return allSchools
+      .filter(s => s.events.some(e => isFutureOrToday(e.event_date)))
+      .filter(s => !filters.keyword.trim() || s.name.includes(filters.keyword.trim()) || (s.name_kana ?? '').includes(filters.keyword.trim()))
+      .map(s => ({
+        ...s,
+        distanceKm: selectedMiddle
+          ? haversineKm(selectedMiddle.lat, selectedMiddle.lng, s.lat, s.lng)
+          : null,
+        events: s.events.filter(e => isFutureOrToday(e.event_date)),
+      }))
+      .filter(s => !selectedMiddle || filters.distanceKm >= 999 || (s.distanceKm ?? 9999) <= filters.distanceKm)
+  }, [allSchools, filters.keyword, filters.distanceKm, selectedMiddle])
+
   const counts = useMemo(() => ({
-    all:          results.length,
-    high_public:  results.filter(s => s.school_type === 'high' && s.is_public).length,
-    high_private: results.filter(s => s.school_type === 'high' && !s.is_public).length,
-    tsushin:      results.filter(s => s.school_type === 'tsushin').length,
-    senmon:       results.filter(s => s.school_type === 'senmon').length,
-    senmon_kouto:  results.filter(s => s.school_type === 'senmon_kouto').length,
-  }), [results])
+    all:          allResults.length,
+    high_public:  allResults.filter(s => s.school_type === 'high' && s.is_public).length,
+    high_private: allResults.filter(s => s.school_type === 'high' && !s.is_public).length,
+    tsushin:      allResults.filter(s => s.school_type === 'tsushin').length,
+    senmon:       allResults.filter(s => s.school_type === 'senmon').length,
+    senmon_kouto: allResults.filter(s => s.school_type === 'senmon_kouto').length,
+  }), [allResults])
 
   const hasActiveSearch = filters.middleSchoolId || filters.keyword.trim() || filters.distanceKm < 999
 
