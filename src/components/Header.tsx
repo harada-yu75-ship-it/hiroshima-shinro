@@ -1,6 +1,9 @@
 'use client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function Header() {
+  const pathname = usePathname()
   return (
     <header style={{
       background: 'var(--navy)',
@@ -31,9 +34,30 @@ export default function Header() {
         }}>
           HIROSHIMA
         </span>
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.04em' }}>
+        <Link href="/" style={{
+          fontSize: 17, fontWeight: 700, letterSpacing: '.04em',
+          color: 'white', textDecoration: 'none',
+        }}>
           進路情報サイト
-        </span>
+        </Link>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+          <Link href="/" style={{
+            fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6,
+            color: pathname === '/' ? 'white' : 'rgba(255,255,255,.6)',
+            background: pathname === '/' ? 'rgba(255,255,255,.15)' : 'none',
+            textDecoration: 'none',
+          }}>
+            🏫 学校一覧
+          </Link>
+          <Link href="/calendar" style={{
+            fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6,
+            color: pathname === '/calendar' ? 'white' : 'rgba(255,255,255,.6)',
+            background: pathname === '/calendar' ? 'rgba(255,255,255,.15)' : 'none',
+            textDecoration: 'none',
+          }}>
+            📅 カレンダー
+          </Link>
+        </div>
         <span style={{
           marginLeft: 'auto',
           fontSize: 11,
