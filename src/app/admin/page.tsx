@@ -467,7 +467,7 @@ export default function AdminPage() {
                     <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>
                       {schoolEvents.length}件
                     </span>
-                    
+                    <a
                       href={schoolEvents[0].schools.official_url}
                       target="_blank"
                       rel="noopener noreferrer"
