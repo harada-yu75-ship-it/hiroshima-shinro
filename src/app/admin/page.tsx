@@ -443,7 +443,7 @@ export default function AdminPage() {
             color: '#888', fontSize: 14, marginBottom: 20,
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            未確認のイベントはありません
+            未確認のイベントはありません。
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
