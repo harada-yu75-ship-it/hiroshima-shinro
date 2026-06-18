@@ -34,6 +34,8 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 
+PDF_KEYWORDS = ["オープンスクール", "入試", "説明会", "体験", "見学", "募集", "進学", "受験"]
+
 SYSTEM_PROMPT = (
     "あなたは学校Webサイトからオープンスクール・学校説明会等の情報を抽出するエージェントです。\n"
     "以下のテキストから、中学生向けのイベント情報を全て抽出し、JSON配列のみで返してください。\n"
@@ -111,15 +113,18 @@ def fetch_html(url):
         resp.encoding = resp.apparent_encoding
         soup = BeautifulSoup(resp.text, "html.parser")
 
+        from urllib.parse import urljoin
         pdf_links = []
         for a in soup.find_all("a", href=True):
             href = a["href"]
-            if href.endswith(".pdf"):
-                if href.startswith("http"):
-                    pdf_links.append(href)
-                else:
-                    from urllib.parse import urljoin
-                    pdf_links.append(urljoin(url, href))
+            if not href.endswith(".pdf"):
+                continue
+            full_url = href if href.startswith("http") else urljoin(url, href)
+            link_text = a.get_text(strip=True)
+            # リンクテキストかURLにキーワードが含まれる場合のみ追加
+            combined = link_text + full_url
+            if any(kw in combined for kw in PDF_KEYWORDS):
+                pdf_links.append(full_url)
 
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
@@ -190,7 +195,7 @@ def save_events(school_id, events, source_url):
                 "capacity": ev.get("capacity"),
                 "notes": ev.get("notes"),
                 "application_deadline": ev.get("application_deadline"),
-                "application_url": ev.get("application_url"),  # ← 追加
+                "application_url": ev.get("application_url"),
                 "source_url": source_url,
                 "is_verified": False
             })
@@ -227,7 +232,7 @@ def crawl_school(school):
         if text:
             has_success = True
             all_texts.append(text)
-            for pdf_url in pdf_links[:2]:
+            for pdf_url in pdf_links[:3]:  # キーワードフィルタ済みなので3件に緩和
                 delay = random.uniform(2, 4)
                 time.sleep(delay)
                 pdf_text = fetch_pdf(pdf_url)
