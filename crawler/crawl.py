@@ -121,6 +121,9 @@ def fetch_html(url):
                 continue
             full_url = href if href.startswith("http") else urljoin(url, href)
             link_text = a.get_text(strip=True)
+            # リンクテキストが空の場合はスキップ
+            if not link_text:
+                continue
             # リンクテキストかURLにキーワードが含まれる場合のみ追加
             combined = link_text + full_url
             if any(kw in combined for kw in PDF_KEYWORDS):
