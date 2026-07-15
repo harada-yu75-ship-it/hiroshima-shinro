@@ -179,11 +179,11 @@ def save_events(school_id, events, source_url):
             print("  今日以降のイベントなし")
             return
         supabase.table("events").delete().eq("school_id", school_id).eq("is_verified", False).execute()
-        
+
         # 承認済みイベントの日付を取得
         verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
         verified_dates = {v["event_date"] for v in (verified.data or [])}
-        
+
         rows = []
         for ev in future:
             if ev.get("event_date") in verified_dates:
@@ -204,12 +204,12 @@ def save_events(school_id, events, source_url):
             })
         supabase.table("events").insert(rows).execute()
         print("  " + str(len(rows)) + "件をSupabaseに保存")
-        
+
         # 承認済みと同じ学校・日付の未確認イベントを削除
         verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
         for v in (verified.data or []):
             supabase.table("events").delete().eq("school_id", school_id).eq("event_date", v["event_date"]).eq("is_verified", False).execute()
-        
+
         supabase.table("schools").update({
             "last_crawled_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", school_id).execute()
@@ -226,8 +226,8 @@ def crawl_school(school):
         print("  クロールURLが未設定です")
         return
 
-    all_events = []
-    all_texts = []
+    all_texts = []       # 全テキスト（HTML + PDF）
+    html_texts = []      # HTMLテキストのみ（フォールバック用）
     has_success = False
 
     for url in crawl_urls:
@@ -235,7 +235,8 @@ def crawl_school(school):
         if text:
             has_success = True
             all_texts.append(text)
-            for pdf_url in pdf_links[:3]:  # キーワードフィルタ済みなので3件に緩和
+            html_texts.append(text)
+            for pdf_url in pdf_links[:3]:
                 delay = random.uniform(2, 4)
                 time.sleep(delay)
                 pdf_text = fetch_pdf(pdf_url)
@@ -252,7 +253,7 @@ def crawl_school(school):
     if not has_success:
         return
 
-    combined_text = "\n".join(all_texts)
+    combined_text = "\n\n---\n\n".join(all_texts)
     new_hash = make_hash(combined_text)
     old_hash = school.get("crawl_hash")
 
@@ -266,16 +267,22 @@ def crawl_school(school):
 
     print("  🔄 ページ内容が変化 → LLM解析実行")
 
-    for text in all_texts:
-        events = extract_events_with_llm(text, school["name"])
-        all_events.extend(events)
+    # まとめて1回のLLM呼び出し（コスト削減）
+    if len(combined_text) <= MAX_TEXT_LENGTH:
+        print("  （全テキストまとめて解析）")
+        events = extract_events_with_llm(combined_text, school["name"])
+    else:
+        # 上限超え → HTMLテキストのみでフォールバック
+        fallback_text = "\n\n---\n\n".join(html_texts)
+        print(f"  ⚠️ テキスト合計が{len(combined_text)}文字で上限超え → HTMLのみでフォールバック解析")
+        events = extract_events_with_llm(fallback_text[:MAX_TEXT_LENGTH], school["name"])
 
     supabase.table("schools").update({
         "crawl_hash": new_hash
     }).eq("id", school["id"]).execute()
 
     clear_error(school["id"])
-    save_events(school["id"], all_events, crawl_urls[0])
+    save_events(school["id"], events, crawl_urls[0])
 
 
 def main():
