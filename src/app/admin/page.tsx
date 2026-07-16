@@ -21,6 +21,11 @@ interface School {
   id: string
   name: string
   official_url: string
+  crawl_urls: string[]
+  crawl_enabled: boolean
+  crawl_error: string | null
+  crawl_error_count: number
+  last_crawled_at: string | null
 }
 
 const EMPTY_FORM = {
@@ -36,6 +41,7 @@ const EMPTY_FORM = {
 }
 
 export default function AdminPage() {
+  const [tab, setTab] = useState<'events' | 'schools'>('events')
   const [events, setEvents] = useState<Event[]>([])
   const [verifiedEvents, setVerifiedEvents] = useState<Event[]>([])
   const [schools, setSchools] = useState<School[]>([])
@@ -48,6 +54,11 @@ export default function AdminPage() {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
   const [approvingSchool, setApprovingSchool] = useState<string | null>(null)
+  const [schoolSearch, setSchoolSearch] = useState('')
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null)
+  const [editingCrawlUrls, setEditingCrawlUrls] = useState('')
+  const [editingCrawlEnabled, setEditingCrawlEnabled] = useState(true)
+  const [savingSchool, setSavingSchool] = useState(false)
   const router = useRouter()
 
   const fetchEvents = async () => {
@@ -85,7 +96,6 @@ export default function AdminPage() {
     fetchEvents()
   }
 
-  // 学校ごとの一括承認
   const handleApproveAll = async (schoolName: string, schoolEvents: Event[]) => {
     setApprovingSchool(schoolName)
     await Promise.all(schoolEvents.map(ev =>
@@ -178,7 +188,32 @@ export default function AdminPage() {
     })
   }
 
-  // 学校ごとにグループ化
+  const startEditSchool = (school: School) => {
+    setEditingSchoolId(school.id)
+    setEditingCrawlUrls((school.crawl_urls ?? []).join('\n'))
+    setEditingCrawlEnabled(school.crawl_enabled)
+  }
+
+  const handleSaveSchool = async (schoolId: string) => {
+    setSavingSchool(true)
+    const urls = editingCrawlUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0)
+    await fetch('/api/admin/schools', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: schoolId,
+        crawl_urls: urls,
+        crawl_enabled: editingCrawlEnabled,
+      }),
+    })
+    setSavingSchool(false)
+    setEditingSchoolId(null)
+    await fetchSchools()
+  }
+
   const groupedEvents = events.reduce((acc, ev) => {
     const name = ev.schools.name
     if (!acc[name]) acc[name] = []
@@ -186,12 +221,18 @@ export default function AdminPage() {
     return acc
   }, {} as Record<string, Event[]>)
 
+  const filteredSchools = schools.filter(s =>
+    s.name.includes(schoolSearch) ||
+    (s.crawl_urls ?? []).some(u => u.includes(schoolSearch))
+  )
+
+  const errorSchools = schools.filter(s => s.crawl_error_count > 0)
+
   const inputStyle = {
     flex: 1, padding: '5px 8px',
     border: '1.5px solid #E5E7EB', borderRadius: 6,
     fontSize: 13, outline: 'none',
   }
-
   const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
 
   const EventCard = ({ ev, isVerified }: { ev: Event; isVerified: boolean }) => (
@@ -322,7 +363,7 @@ export default function AdminPage() {
         alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 900 }}>📋 イベント管理画面</div>
+          <div style={{ fontSize: 16, fontWeight: 900 }}>📋 管理画面</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)' }}>広島市進路情報サイト</div>
         </div>
         <button onClick={handleLogout} style={{
@@ -334,207 +375,397 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {/* タブ */}
+      <div style={{ background: 'white', borderBottom: '2px solid #E5E7EB', display: 'flex' }}>
+        {([
+          { key: 'events', label: `📋 イベント管理` },
+          { key: 'schools', label: `🏫 学校・クロール管理${errorSchools.length > 0 ? ` ⚠️${errorSchools.length}件エラー` : ''}` },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: '12px 20px', border: 'none', background: 'none',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              color: tab === t.key ? '#1a2742' : '#888',
+              borderBottom: tab === t.key ? '2px solid #1a2742' : '2px solid transparent',
+              marginBottom: -2,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* 手動登録フォーム */}
-        <div style={{
-          background: 'white', borderRadius: 10, marginBottom: 20,
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB',
-          overflow: 'hidden',
-        }}>
-          <div
-            onClick={() => setShowAddForm(v => !v)}
-            style={{
-              padding: '14px 18px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: showAddForm ? '#F0F7FF' : 'white',
-            }}
-          >
-            <div style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>➕ イベントを手動登録</div>
-            <span style={{ color: '#888', fontSize: 12 }}>{showAddForm ? '▲ 閉じる' : '▼ 開く'}</span>
-          </div>
-
-          {showAddForm && (
-            <div style={{ padding: '16px 18px', borderTop: '1px solid #E5E7EB' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={labelStyle}>学校名 *</label>
-                  <input
-                    type="text"
-                    placeholder="学校名を入力（例：広島県立○○高等学校）"
-                    value={addForm.school_name}
-                    onChange={e => setAddForm(f => ({ ...f, school_name: e.target.value }))}
-                    style={inputStyle}
-                  />
-                </div>
-                {[
-                  { label: 'イベント名 *', key: 'event_name', type: 'text', placeholder: 'オープンスクール' },
-                  { label: '開催日 *', key: 'event_date', type: 'date', placeholder: '' },
-                  { label: '時間', key: 'event_time', type: 'text', placeholder: '13:00〜15:00' },
-                  { label: '申込締切日', key: 'application_deadline', type: 'date', placeholder: '' },
-                  { label: '申込URL', key: 'application_url', type: 'text', placeholder: 'https://...' },
-                  { label: '定員', key: 'capacity', type: 'number', placeholder: '100' },
-                  { label: '備考', key: 'notes', type: 'text', placeholder: '先着順など' },
-                ].map(({ label, key, type, placeholder }) => (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={labelStyle}>{label}</label>
-                    <input
-                      type={type}
-                      placeholder={placeholder}
-                      value={(addForm as any)[key]}
-                      onChange={e => setAddForm(f => ({ ...f, [key]: e.target.value }))}
-                      style={inputStyle}
-                    />
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={labelStyle}>要申込</label>
-                  <select
-                    value={addForm.requires_application}
-                    onChange={e => setAddForm(f => ({ ...f, requires_application: e.target.value as any }))}
-                    style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
-                  >
-                    <option value="">不明</option>
-                    <option value="true">要申込</option>
-                    <option value="false">申込不要</option>
-                  </select>
-                </div>
-                {addError && <div style={{ color: '#DC2626', fontSize: 12 }}>⚠️ {addError}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={handleAdd} disabled={adding} style={{
-                    background: '#1a2742', color: 'white', border: 'none',
-                    borderRadius: 6, padding: '8px 20px', fontSize: 13,
-                    fontWeight: 700, cursor: adding ? 'not-allowed' : 'pointer',
-                  }}>
-                    {adding ? '登録中...' : '✅ 登録してサイトに掲載'}
-                  </button>
-                  <button onClick={() => { setAddForm(EMPTY_FORM); setShowAddForm(false); setAddError('') }} style={{
-                    background: '#F3F4F6', color: '#555', border: 'none',
-                    borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer',
-                  }}>
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 未確認イベント一覧 */}
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 14, color: '#555' }}>
-            未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件
-          </div>
-          <button onClick={fetchEvents} style={{
-            background: 'white', border: '1.5px solid #E5E7EB',
-            borderRadius: 6, padding: '6px 14px', fontSize: 12,
-            cursor: 'pointer', color: '#555',
-          }}>
-            🔄 更新
-          </button>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>読み込み中...</div>
-        ) : events.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '40px 0',
-            background: 'white', borderRadius: 12,
-            color: '#888', fontSize: 14, marginBottom: 20,
-          }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            未確認のイベントはありません。
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
-            {Object.entries(groupedEvents).map(([schoolName, schoolEvents]) => (
-              <div key={schoolName} style={{
-                background: 'white', borderRadius: 10,
-                boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-                border: '1px solid #E5E7EB', overflow: 'hidden',
-              }}>
-                {/* 学校ヘッダー */}
-                <div style={{
-                  padding: '12px 16px',
-                  background: '#F8FAFC',
-                  borderBottom: '1px solid #E5E7EB',
+        {/* ===== イベント管理タブ ===== */}
+        {tab === 'events' && (
+          <>
+            {/* 手動登録フォーム */}
+            <div style={{
+              background: 'white', borderRadius: 10, marginBottom: 20,
+              boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB',
+              overflow: 'hidden',
+            }}>
+              <div
+                onClick={() => setShowAddForm(v => !v)}
+                style={{
+                  padding: '14px 18px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                  <div>
-                    <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>
-                      🏫 {schoolName}
-                    </span>
-                    <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>
-                      {schoolEvents.length}件
-                    </span>
-                    <a
-                      href={schoolEvents[0].schools.official_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}
-                    >
-                      公式サイト →
-                    </a>
-                  </div>
-                  <button
-                    onClick={() => handleApproveAll(schoolName, schoolEvents)}
-                    disabled={approvingSchool === schoolName}
-                    style={{
-                      background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A',
-                      color: 'white', border: 'none',
-                      borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                      fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
-                  </button>
-                </div>
-
-                {/* イベント一覧 */}
-                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {schoolEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} />)}
-                </div>
+                  background: showAddForm ? '#F0F7FF' : 'white',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>➕ イベントを手動登録</div>
+                <span style={{ color: '#888', fontSize: 12 }}>{showAddForm ? '▲ 閉じる' : '▼ 開く'}</span>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* 掲載済みイベント一覧 */}
-        <div style={{
-          background: 'white', borderRadius: 10, marginBottom: 20,
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5',
-          overflow: 'hidden',
-        }}>
-          <div
-            onClick={() => setShowVerified(v => !v)}
-            style={{
-              padding: '14px 18px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: showVerified ? '#F0FFF4' : 'white',
-            }}
-          >
-            <div style={{ fontWeight: 700, color: '#16A34A', fontSize: 14 }}>
-              ✅ 掲載済みイベント（{verifiedEvents.length}件）
-            </div>
-            <span style={{ color: '#888', fontSize: 12 }}>{showVerified ? '▲ 閉じる' : '▼ 開く'}</span>
-          </div>
-
-          {showVerified && (
-            <div style={{ padding: '16px 18px', borderTop: '1px solid #D1FAE5' }}>
-              {verifiedEvents.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#888', fontSize: 13, padding: '20px 0' }}>
-                  掲載済みのイベントはありません
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {verifiedEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+              {showAddForm && (
+                <div style={{ padding: '16px 18px', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={labelStyle}>学校名 *</label>
+                      <input
+                        type="text"
+                        placeholder="学校名を入力（例：広島県立○○高等学校）"
+                        value={addForm.school_name}
+                        onChange={e => setAddForm(f => ({ ...f, school_name: e.target.value }))}
+                        style={inputStyle}
+                      />
+                    </div>
+                    {[
+                      { label: 'イベント名 *', key: 'event_name', type: 'text', placeholder: 'オープンスクール' },
+                      { label: '開催日 *', key: 'event_date', type: 'date', placeholder: '' },
+                      { label: '時間', key: 'event_time', type: 'text', placeholder: '13:00〜15:00' },
+                      { label: '申込締切日', key: 'application_deadline', type: 'date', placeholder: '' },
+                      { label: '申込URL', key: 'application_url', type: 'text', placeholder: 'https://...' },
+                      { label: '定員', key: 'capacity', type: 'number', placeholder: '100' },
+                      { label: '備考', key: 'notes', type: 'text', placeholder: '先着順など' },
+                    ].map(({ label, key, type, placeholder }) => (
+                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <label style={labelStyle}>{label}</label>
+                        <input
+                          type={type}
+                          placeholder={placeholder}
+                          value={(addForm as any)[key]}
+                          onChange={e => setAddForm(f => ({ ...f, [key]: e.target.value }))}
+                          style={inputStyle}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={labelStyle}>要申込</label>
+                      <select
+                        value={addForm.requires_application}
+                        onChange={e => setAddForm(f => ({ ...f, requires_application: e.target.value as any }))}
+                        style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
+                      >
+                        <option value="">不明</option>
+                        <option value="true">要申込</option>
+                        <option value="false">申込不要</option>
+                      </select>
+                    </div>
+                    {addError && <div style={{ color: '#DC2626', fontSize: 12 }}>⚠️ {addError}</div>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                      <button onClick={handleAdd} disabled={adding} style={{
+                        background: '#1a2742', color: 'white', border: 'none',
+                        borderRadius: 6, padding: '8px 20px', fontSize: 13,
+                        fontWeight: 700, cursor: adding ? 'not-allowed' : 'pointer',
+                      }}>
+                        {adding ? '登録中...' : '✅ 登録してサイトに掲載'}
+                      </button>
+                      <button onClick={() => { setAddForm(EMPTY_FORM); setShowAddForm(false); setAddError('') }} style={{
+                        background: '#F3F4F6', color: '#555', border: 'none',
+                        borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer',
+                      }}>
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
 
+            {/* 未確認イベント一覧 */}
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 14, color: '#555' }}>
+                未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件
+              </div>
+              <button onClick={fetchEvents} style={{
+                background: 'white', border: '1.5px solid #E5E7EB',
+                borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                cursor: 'pointer', color: '#555',
+              }}>
+                🔄 更新
+              </button>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>読み込み中...</div>
+            ) : events.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '40px 0',
+                background: 'white', borderRadius: 12,
+                color: '#888', fontSize: 14, marginBottom: 20,
+              }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                未確認のイベントはありません。
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+                {Object.entries(groupedEvents).map(([schoolName, schoolEvents]) => (
+                  <div key={schoolName} style={{
+                    background: 'white', borderRadius: 10,
+                    boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+                    border: '1px solid #E5E7EB', overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      padding: '12px 16px', background: '#F8FAFC',
+                      borderBottom: '1px solid #E5E7EB',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div>
+                        <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>
+                          🏫 {schoolName}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>
+                          {schoolEvents.length}件
+                        </span>
+                        <a
+                          href={schoolEvents[0].schools.official_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}
+                        >
+                          公式サイト →
+                        </a>
+                      </div>
+                      <button
+                        onClick={() => handleApproveAll(schoolName, schoolEvents)}
+                        disabled={approvingSchool === schoolName}
+                        style={{
+                          background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A',
+                          color: 'white', border: 'none',
+                          borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                          fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
+                      </button>
+                    </div>
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {schoolEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 掲載済みイベント */}
+            <div style={{
+              background: 'white', borderRadius: 10, marginBottom: 20,
+              boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5',
+              overflow: 'hidden',
+            }}>
+              <div
+                onClick={() => setShowVerified(v => !v)}
+                style={{
+                  padding: '14px 18px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: showVerified ? '#F0FFF4' : 'white',
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#16A34A', fontSize: 14 }}>
+                  ✅ 掲載済みイベント（{verifiedEvents.length}件）
+                </div>
+                <span style={{ color: '#888', fontSize: 12 }}>{showVerified ? '▲ 閉じる' : '▼ 開く'}</span>
+              </div>
+              {showVerified && (
+                <div style={{ padding: '16px 18px', borderTop: '1px solid #D1FAE5' }}>
+                  {verifiedEvents.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#888', fontSize: 13, padding: '20px 0' }}>
+                      掲載済みのイベントはありません
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {verifiedEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ===== 学校・クロール管理タブ ===== */}
+        {tab === 'schools' && (
+          <>
+            {/* エラー校サマリー */}
+            {errorSchools.length > 0 && (
+              <div style={{
+                background: '#FEF2F2', border: '1px solid #FECACA',
+                borderRadius: 10, padding: '14px 18px', marginBottom: 20,
+              }}>
+                <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 14, marginBottom: 8 }}>
+                  ⚠️ クロールエラーが発生している学校（{errorSchools.length}校）
+                </div>
+                {errorSchools.map(s => (
+                  <div key={s.id} style={{ fontSize: 12, color: '#7F1D1D', marginBottom: 4 }}>
+                    <strong>{s.name}</strong>（連続{s.crawl_error_count}回）：{s.crawl_error}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 検索 */}
+            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="学校名・URLで検索..."
+                value={schoolSearch}
+                onChange={e => setSchoolSearch(e.target.value)}
+                style={{
+                  flex: 1, padding: '8px 12px',
+                  border: '1.5px solid #E5E7EB', borderRadius: 8,
+                  fontSize: 13, outline: 'none',
+                }}
+              />
+              <button onClick={fetchSchools} style={{
+                background: 'white', border: '1.5px solid #E5E7EB',
+                borderRadius: 8, padding: '6px 14px', fontSize: 12,
+                cursor: 'pointer', color: '#555',
+              }}>
+                🔄 更新
+              </button>
+            </div>
+
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>
+              {filteredSchools.length}校表示中（全{schools.length}校）
+            </div>
+
+            {/* 学校一覧 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {filteredSchools.map(school => (
+                <div key={school.id} style={{
+                  background: 'white', borderRadius: 10,
+                  border: `1px solid ${school.crawl_error_count > 0 ? '#FECACA' : '#E5E7EB'}`,
+                  boxShadow: '0 1px 4px rgba(0,0,0,.05)', overflow: 'hidden',
+                }}>
+                  <div style={{ padding: '12px 16px' }}>
+                    {/* 学校名・ステータス */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>{school.name}</span>
+                        <span style={{
+                          fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700,
+                          background: school.crawl_enabled ? '#D1FAE5' : '#F3F4F6',
+                          color: school.crawl_enabled ? '#065F46' : '#6B7280',
+                        }}>
+                          {school.crawl_enabled ? '🟢 クロール有効' : '⚫ 無効'}
+                        </span>
+                        {school.crawl_error_count > 0 && (
+                          <span style={{
+                            fontSize: 11, padding: '1px 7px', borderRadius: 10,
+                            background: '#FEE2E2', color: '#DC2626', fontWeight: 700,
+                          }}>
+                            ⚠️ エラー{school.crawl_error_count}回
+                          </span>
+                        )}
+                      </div>
+                      {editingSchoolId !== school.id && (
+                        <button onClick={() => startEditSchool(school)} style={{
+                          background: '#EFF6FF', color: '#2563EB', border: 'none',
+                          borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                          fontWeight: 700, cursor: 'pointer',
+                        }}>
+                          ✏️ 編集
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 最終クロール日時・エラー */}
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>
+                      最終クロール：{school.last_crawled_at
+                        ? new Date(school.last_crawled_at).toLocaleString('ja-JP')
+                        : '未実行'}
+                    </div>
+                    {school.crawl_error && (
+                      <div style={{
+                        fontSize: 11, color: '#DC2626', background: '#FEF2F2',
+                        padding: '4px 8px', borderRadius: 4, marginBottom: 8,
+                      }}>
+                        ❌ {school.crawl_error}
+                      </div>
+                    )}
+
+                    {/* 編集フォーム */}
+                    {editingSchoolId === school.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 4 }}>
+                            クロールURL（1行に1URL）
+                          </label>
+                          <textarea
+                            value={editingCrawlUrls}
+                            onChange={e => setEditingCrawlUrls(e.target.value)}
+                            rows={3}
+                            style={{
+                              width: '100%', padding: '8px',
+                              border: '1.5px solid #3B82F6', borderRadius: 6,
+                              fontSize: 12, fontFamily: 'monospace',
+                              resize: 'vertical', boxSizing: 'border-box',
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <label style={{ fontSize: 12, color: '#555' }}>クロール有効</label>
+                          <input
+                            type="checkbox"
+                            checked={editingCrawlEnabled}
+                            onChange={e => setEditingCrawlEnabled(e.target.checked)}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            onClick={() => handleSaveSchool(school.id)}
+                            disabled={savingSchool}
+                            style={{
+                              background: '#1a2742', color: 'white', border: 'none',
+                              borderRadius: 6, padding: '6px 16px', fontSize: 12,
+                              fontWeight: 700, cursor: savingSchool ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {savingSchool ? '保存中...' : '💾 保存'}
+                          </button>
+                          <button onClick={() => setEditingSchoolId(null)} style={{
+                            background: '#F3F4F6', color: '#555', border: 'none',
+                            borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+                          }}>
+                            キャンセル
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* URL表示 */
+                      <div>
+                        {(school.crawl_urls ?? []).length === 0 ? (
+                          <div style={{ fontSize: 11, color: '#EF4444' }}>⚠️ クロールURL未設定</div>
+                        ) : (
+                          (school.crawl_urls ?? []).map((url, i) => (
+                            <div key={i} style={{ fontSize: 11, color: '#2563EB', wordBreak: 'break-all' }}>
+                              🔗 {url}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
