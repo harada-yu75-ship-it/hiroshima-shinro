@@ -195,24 +195,24 @@ export default function AdminPage() {
   }
 
   const handleSaveSchool = async (schoolId: string) => {
-    setSavingSchool(true)
-    const urls = editingCrawlUrls
-      .split('\n')
-      .map(u => u.trim())
-      .filter(u => u.length > 0)
-    await fetch('/api/admin/schools', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: schoolId,
-        crawl_urls: urls,
-        crawl_enabled: editingCrawlEnabled,
-      }),
-    })
-    setSavingSchool(false)
-    setEditingSchoolId(null)
-    await fetchSchools()
-  }
+  setSavingSchool(true)
+  const urls = editingCrawlUrls
+    .split('\n')
+    .map(u => u.trim())
+    .filter(u => u.length > 0)
+  await fetch('/api/admin/schools', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: schoolId,
+      crawl_urls: urls,
+      crawl_enabled: editingCrawlEnabled,
+    }),
+  })
+  await fetchSchools()
+  setSavingSchool(false)
+  setEditingSchoolId(null)
+}
 
   const groupedEvents = events.reduce((acc, ev) => {
     const name = ev.schools.name
