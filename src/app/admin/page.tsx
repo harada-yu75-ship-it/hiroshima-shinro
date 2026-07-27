@@ -251,8 +251,8 @@ export default function AdminPage() {
       }),
     })
     await fetchSchools()
-    setSavingSchool(false)
-    setEditingSchoolId(null)
+setEditingSchoolId(null)  // ← fetchSchoolsの後にnullにする
+setSavingSchool(false)
   }
 
   const groupedEvents = events.reduce((acc, ev) => {
