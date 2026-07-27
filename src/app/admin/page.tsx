@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [addError, setAddError] = useState('')
   const [approvingSchool, setApprovingSchool] = useState<string | null>(null)
   const [schoolSearch, setSchoolSearch] = useState('')
+  const [verifiedSearch, setVerifiedSearch] = useState('')
   const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null)
   const [editingCrawlUrls, setEditingCrawlUrls] = useState('')
   const [editingCrawlEnabled, setEditingCrawlEnabled] = useState(true)
@@ -75,13 +76,13 @@ export default function AdminPage() {
   }
 
   const fetchSchools = async () => {
-  const res = await fetch('/api/admin/schools', { cache: 'no-store' })
-  const json = await res.json()
-  const sorted = (json.schools ?? []).sort((a: School, b: School) =>
-    a.name.localeCompare(b.name, 'ja')
-  )
-  setSchools([...sorted])
-}
+    const res = await fetch('/api/admin/schools', { cache: 'no-store' })
+    const json = await res.json()
+    const sorted = (json.schools ?? []).sort((a: School, b: School) =>
+      a.name.localeCompare(b.name, 'ja')
+    )
+    setSchools([...sorted])
+  }
 
   useEffect(() => {
     fetchEvents()
@@ -196,24 +197,24 @@ export default function AdminPage() {
   }
 
   const handleSaveSchool = async (schoolId: string) => {
-  setSavingSchool(true)
-  const urls = editingCrawlUrls
-    .split('\n')
-    .map(u => u.trim())
-    .filter(u => u.length > 0)
-  await fetch('/api/admin/schools', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: schoolId,
-      crawl_urls: urls,
-      crawl_enabled: editingCrawlEnabled,
-    }),
-  })
-  await fetchSchools()
-  setSavingSchool(false)
-  setEditingSchoolId(null)
-}
+    setSavingSchool(true)
+    const urls = editingCrawlUrls
+      .split('\n')
+      .map(u => u.trim())
+      .filter(u => u.length > 0)
+    await fetch('/api/admin/schools', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: schoolId,
+        crawl_urls: urls,
+        crawl_enabled: editingCrawlEnabled,
+      }),
+    })
+    await fetchSchools()
+    setSavingSchool(false)
+    setEditingSchoolId(null)
+  }
 
   const groupedEvents = events.reduce((acc, ev) => {
     const name = ev.schools.name
@@ -221,6 +222,15 @@ export default function AdminPage() {
     acc[name].push(ev)
     return acc
   }, {} as Record<string, Event[]>)
+
+  const groupedVerifiedEvents = verifiedEvents
+    .filter(ev => !verifiedSearch || ev.schools.name.includes(verifiedSearch))
+    .reduce((acc, ev) => {
+      const name = ev.schools.name
+      if (!acc[name]) acc[name] = []
+      acc[name].push(ev)
+      return acc
+    }, {} as Record<string, Event[]>)
 
   const filteredSchools = schools.filter(s =>
     s.name.includes(schoolSearch) ||
@@ -584,13 +594,61 @@ export default function AdminPage() {
               </div>
               {showVerified && (
                 <div style={{ padding: '16px 18px', borderTop: '1px solid #D1FAE5' }}>
-                  {verifiedEvents.length === 0 ? (
+                  {/* 検索ボックス */}
+                  <input
+                    type="text"
+                    placeholder="学校名で検索..."
+                    value={verifiedSearch}
+                    onChange={e => setVerifiedSearch(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 12px', marginBottom: 16,
+                      border: '1.5px solid #D1FAE5', borderRadius: 8,
+                      fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                  {Object.keys(groupedVerifiedEvents).length === 0 ? (
                     <div style={{ textAlign: 'center', color: '#888', fontSize: 13, padding: '20px 0' }}>
-                      掲載済みのイベントはありません
+                      {verifiedSearch ? `「${verifiedSearch}」に一致する学校はありません` : '掲載済みのイベントはありません'}
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {verifiedEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {Object.entries(groupedVerifiedEvents)
+                        .sort(([a], [b]) => a.localeCompare(b, 'ja'))
+                        .map(([schoolName, schoolEvents]) => (
+                          <div key={schoolName} style={{
+                            borderRadius: 10, border: '1px solid #D1FAE5', overflow: 'hidden',
+                          }}>
+                            {/* 学校ヘッダー */}
+                            <div style={{
+                              padding: '10px 14px', background: '#F0FFF4',
+                              borderBottom: '1px solid #D1FAE5',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            }}>
+                              <div>
+                                <span style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>
+                                  🏫 {schoolName}
+                                </span>
+                                <span style={{ fontSize: 11, color: '#6B7280', marginLeft: 8 }}>
+                                  {schoolEvents.length}件
+                                </span>
+                                <a
+                                  href={schoolEvents[0].schools.official_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}
+                                >
+                                  公式サイト →
+                                </a>
+                              </div>
+                            </div>
+                            {/* イベント一覧 */}
+                            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {schoolEvents
+                                .sort((a, b) => a.event_date.localeCompare(b.event_date))
+                                .map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
