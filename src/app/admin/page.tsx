@@ -21,6 +21,9 @@ interface School {
   id: string
   name: string
   official_url: string
+  address: string | null
+  lat: number | null
+  lng: number | null
   crawl_urls: string[]
   crawl_enabled: boolean
   crawl_error: string | null
@@ -59,6 +62,11 @@ export default function AdminPage() {
   const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null)
   const [editingCrawlUrls, setEditingCrawlUrls] = useState('')
   const [editingCrawlEnabled, setEditingCrawlEnabled] = useState(true)
+  const [editingAddress, setEditingAddress] = useState('')
+  const [editingLat, setEditingLat] = useState('')
+  const [editingLng, setEditingLng] = useState('')
+  const [geocoding, setGeocoding] = useState(false)
+  const [geocodeMsg, setGeocodeMsg] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
   const router = useRouter()
 
@@ -88,6 +96,30 @@ export default function AdminPage() {
     fetchEvents()
     fetchSchools()
   }, [])
+
+  // 国土地理院APIで住所→座標を取得
+  const handleGeocode = async () => {
+    if (!editingAddress) return
+    setGeocoding(true)
+    setGeocodeMsg('')
+    try {
+      const res = await fetch(
+        `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(editingAddress)}`
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        const [lng, lat] = data[0].geometry.coordinates
+        setEditingLat(String(lat))
+        setEditingLng(String(lng))
+        setGeocodeMsg(`✓ 取得成功：${data[0].properties.title}`)
+      } else {
+        setGeocodeMsg('⚠️ 住所が見つかりませんでした')
+      }
+    } catch {
+      setGeocodeMsg('⚠️ 座標取得に失敗しました')
+    }
+    setGeocoding(false)
+  }
 
   const handleApprove = async (id: string) => {
     await fetch('/api/admin/events', {
@@ -194,6 +226,10 @@ export default function AdminPage() {
     setEditingSchoolId(school.id)
     setEditingCrawlUrls((school.crawl_urls ?? []).join('\n'))
     setEditingCrawlEnabled(school.crawl_enabled)
+    setEditingAddress(school.address ?? '')
+    setEditingLat(school.lat != null ? String(school.lat) : '')
+    setEditingLng(school.lng != null ? String(school.lng) : '')
+    setGeocodeMsg('')
   }
 
   const handleSaveSchool = async (schoolId: string) => {
@@ -209,6 +245,9 @@ export default function AdminPage() {
         id: schoolId,
         crawl_urls: urls,
         crawl_enabled: editingCrawlEnabled,
+        address: editingAddress || null,
+        lat: editingLat ? Number(editingLat) : null,
+        lng: editingLng ? Number(editingLng) : null,
       }),
     })
     await fetchSchools()
@@ -594,7 +633,6 @@ export default function AdminPage() {
               </div>
               {showVerified && (
                 <div style={{ padding: '16px 18px', borderTop: '1px solid #D1FAE5' }}>
-                  {/* 検索ボックス */}
                   <input
                     type="text"
                     placeholder="学校名で検索..."
@@ -618,30 +656,26 @@ export default function AdminPage() {
                           <div key={schoolName} style={{
                             borderRadius: 10, border: '1px solid #D1FAE5', overflow: 'hidden',
                           }}>
-                            {/* 学校ヘッダー */}
                             <div style={{
                               padding: '10px 14px', background: '#F0FFF4',
                               borderBottom: '1px solid #D1FAE5',
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              display: 'flex', alignItems: 'center',
                             }}>
-                              <div>
-                                <span style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>
-                                  🏫 {schoolName}
-                                </span>
-                                <span style={{ fontSize: 11, color: '#6B7280', marginLeft: 8 }}>
-                                  {schoolEvents.length}件
-                                </span>
-                                <a
-                                  href={schoolEvents[0].schools.official_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}
-                                >
-                                  公式サイト →
-                                </a>
-                              </div>
+                              <span style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>
+                                🏫 {schoolName}
+                              </span>
+                              <span style={{ fontSize: 11, color: '#6B7280', marginLeft: 8 }}>
+                                {schoolEvents.length}件
+                              </span>
+                              <a
+                                href={schoolEvents[0].schools.official_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}
+                              >
+                                公式サイト →
+                              </a>
                             </div>
-                            {/* イベント一覧 */}
                             <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {schoolEvents
                                 .sort((a, b) => a.event_date.localeCompare(b.event_date))
@@ -660,7 +694,6 @@ export default function AdminPage() {
         {/* ===== 学校・クロール管理タブ ===== */}
         {tab === 'schools' && (
           <>
-            {/* エラー校サマリー */}
             {errorSchools.length > 0 && (
               <div style={{
                 background: '#FEF2F2', border: '1px solid #FECACA',
@@ -677,7 +710,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 検索 */}
             <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
               <input
                 type="text"
@@ -703,7 +735,6 @@ export default function AdminPage() {
               {filteredSchools.length}校表示中（全{schools.length}校）
             </div>
 
-            {/* 学校一覧 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filteredSchools.map(school => (
                 <div key={school.id} style={{
@@ -712,7 +743,6 @@ export default function AdminPage() {
                   boxShadow: '0 1px 4px rgba(0,0,0,.05)', overflow: 'hidden',
                 }}>
                   <div style={{ padding: '12px 16px' }}>
-                    {/* 学校名・ステータス */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>{school.name}</span>
@@ -743,7 +773,15 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    {/* 最終クロール日時・エラー */}
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+                      📍 {school.address ?? '住所未設定'}
+                      {school.lat && school.lng && (
+                        <span style={{ marginLeft: 8, color: '#aaa' }}>
+                          ({school.lat.toFixed(4)}, {school.lng.toFixed(4)})
+                        </span>
+                      )}
+                    </div>
+
                     <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>
                       最終クロール：{school.last_crawled_at
                         ? new Date(school.last_crawled_at).toLocaleString('ja-JP')
@@ -758,12 +796,95 @@ export default function AdminPage() {
                       </div>
                     )}
 
-                    {/* 編集フォーム */}
                     {editingSchoolId === school.id ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-                        <div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+
+                        {/* 住所・座標セクション */}
+                        <div style={{
+                          background: '#F8FAFC', borderRadius: 8, padding: '12px',
+                          border: '1px solid #E5E7EB',
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>
+                            📍 住所・座標
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                            <input
+                              type="text"
+                              placeholder="例：広島市南区宇品海岸1丁目"
+                              value={editingAddress}
+                              onChange={e => setEditingAddress(e.target.value)}
+                              style={{
+                                flex: 1, padding: '6px 10px',
+                                border: '1.5px solid #E5E7EB', borderRadius: 6,
+                                fontSize: 12, outline: 'none',
+                              }}
+                            />
+                            <button
+                              onClick={handleGeocode}
+                              disabled={geocoding || !editingAddress}
+                              style={{
+                                background: geocoding ? '#9CA3AF' : '#2563EB',
+                                color: 'white', border: 'none',
+                                borderRadius: 6, padding: '6px 12px', fontSize: 11,
+                                fontWeight: 700, cursor: geocoding ? 'not-allowed' : 'pointer',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {geocoding ? '取得中...' : '📍 座標を自動取得'}
+                            </button>
+                          </div>
+                          {geocodeMsg && (
+                            <div style={{
+                              fontSize: 11, marginBottom: 8,
+                              color: geocodeMsg.startsWith('✓') ? '#16A34A' : '#DC2626',
+                            }}>
+                              {geocodeMsg}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>緯度（lat）</div>
+                              <input
+                                type="number"
+                                step="0.0001"
+                                placeholder="34.xxxx"
+                                value={editingLat}
+                                onChange={e => setEditingLat(e.target.value)}
+                                style={{
+                                  width: '100%', padding: '6px 8px',
+                                  border: '1.5px solid #E5E7EB', borderRadius: 6,
+                                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>経度（lng）</div>
+                              <input
+                                type="number"
+                                step="0.0001"
+                                placeholder="132.xxxx"
+                                value={editingLng}
+                                onChange={e => setEditingLng(e.target.value)}
+                                style={{
+                                  width: '100%', padding: '6px 8px',
+                                  border: '1.5px solid #E5E7EB', borderRadius: 6,
+                                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* クロールURLセクション */}
+                        <div style={{
+                          background: '#F8FAFC', borderRadius: 8, padding: '12px',
+                          border: '1px solid #E5E7EB',
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>
+                            🔗 クロールURL
+                          </div>
                           <label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 4 }}>
-                            クロールURL（1行に1URL）
+                            1行に1URL
                           </label>
                           <textarea
                             value={editingCrawlUrls}
@@ -776,22 +897,23 @@ export default function AdminPage() {
                               resize: 'vertical', boxSizing: 'border-box',
                             }}
                           />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                            <label style={{ fontSize: 12, color: '#555' }}>クロール有効</label>
+                            <input
+                              type="checkbox"
+                              checked={editingCrawlEnabled}
+                              onChange={e => setEditingCrawlEnabled(e.target.checked)}
+                            />
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <label style={{ fontSize: 12, color: '#555' }}>クロール有効</label>
-                          <input
-                            type="checkbox"
-                            checked={editingCrawlEnabled}
-                            onChange={e => setEditingCrawlEnabled(e.target.checked)}
-                          />
-                        </div>
+
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
                             onClick={() => handleSaveSchool(school.id)}
                             disabled={savingSchool}
                             style={{
                               background: '#1a2742', color: 'white', border: 'none',
-                              borderRadius: 6, padding: '6px 16px', fontSize: 12,
+                              borderRadius: 6, padding: '8px 20px', fontSize: 12,
                               fontWeight: 700, cursor: savingSchool ? 'not-allowed' : 'pointer',
                             }}
                           >
@@ -799,14 +921,13 @@ export default function AdminPage() {
                           </button>
                           <button onClick={() => setEditingSchoolId(null)} style={{
                             background: '#F3F4F6', color: '#555', border: 'none',
-                            borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+                            borderRadius: 6, padding: '8px 14px', fontSize: 12, cursor: 'pointer',
                           }}>
                             キャンセル
                           </button>
                         </div>
                       </div>
                     ) : (
-                      /* URL表示 */
                       <div>
                         {(school.crawl_urls ?? []).length === 0 ? (
                           <div style={{ fontSize: 11, color: '#EF4444' }}>⚠️ クロールURL未設定</div>
