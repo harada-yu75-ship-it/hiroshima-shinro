@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
-
 export async function GET() {
   const { data, error } = await supabase
     .from('schools')
@@ -14,9 +12,11 @@ export async function GET() {
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ schools: data })
 }
-
 export async function PATCH(request: NextRequest) {
-  const { id, crawl_urls, crawl_enabled, address, lat, lng } = await request.json()
+  console.log('PATCH /api/admin/schools called')
+  const body = await request.json()
+  console.log('body:', JSON.stringify(body))
+  const { id, crawl_urls, crawl_enabled, address, lat, lng } = body
   const updates: Record<string, unknown> = {}
   if (crawl_urls !== undefined) updates.crawl_urls = crawl_urls
   if (crawl_enabled !== undefined) updates.crawl_enabled = crawl_enabled
@@ -24,11 +24,14 @@ export async function PATCH(request: NextRequest) {
   if (address !== undefined) updates.address = address
   if (lat !== undefined) updates.lat = lat
   if (lng !== undefined) updates.lng = lng
-
+  console.log('updates:', JSON.stringify(updates))
   const { error } = await supabase
     .from('schools')
     .update(updates as never)
     .eq('id', id)
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) {
+    console.log('supabase error:', JSON.stringify(error))
+    return NextResponse.json({ error }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
