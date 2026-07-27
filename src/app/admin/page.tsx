@@ -75,12 +75,13 @@ export default function AdminPage() {
   }
 
   const fetchSchools = async () => {
-    const res = await fetch('/api/admin/schools')
-    const json = await res.json()
-    setSchools((json.schools ?? []).sort((a: School, b: School) =>
-      a.name.localeCompare(b.name, 'ja')
-    ))
-  }
+  const res = await fetch('/api/admin/schools', { cache: 'no-store' })
+  const json = await res.json()
+  const sorted = (json.schools ?? []).sort((a: School, b: School) =>
+    a.name.localeCompare(b.name, 'ja')
+  )
+  setSchools([...sorted])
+}
 
   useEffect(() => {
     fetchEvents()
