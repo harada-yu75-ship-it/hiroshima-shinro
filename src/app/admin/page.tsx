@@ -31,6 +31,21 @@ interface School {
   last_crawled_at: string | null
 }
 
+interface Report {
+  id: string
+  school_id: string | null
+  school_name_text: string | null
+  report_type: string
+  description: string
+  suggested_value: string | null
+  reporter_email: string
+  reporter_name: string | null
+  status: string
+  created_at: string
+  resolved_at: string | null
+  schools: { name: string } | null
+}
+
 const EMPTY_FORM = {
   school_name: '',
   event_name: '',
@@ -44,10 +59,11 @@ const EMPTY_FORM = {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<'events' | 'schools'>('events')
+  const [tab, setTab] = useState<'events' | 'schools' | 'reports'>('events')
   const [events, setEvents] = useState<Event[]>([])
   const [verifiedEvents, setVerifiedEvents] = useState<Event[]>([])
   const [schools, setSchools] = useState<School[]>([])
+  const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<Event>>({})
@@ -68,6 +84,7 @@ export default function AdminPage() {
   const [geocoding, setGeocoding] = useState(false)
   const [geocodeMsg, setGeocodeMsg] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
   const router = useRouter()
 
   const fetchEvents = async () => {
@@ -92,34 +109,17 @@ export default function AdminPage() {
     setSchools([...sorted])
   }
 
+  const fetchReports = async () => {
+    const res = await fetch('/api/reports', { cache: 'no-store' })
+    const json = await res.json()
+    setReports(json.reports ?? [])
+  }
+
   useEffect(() => {
     fetchEvents()
     fetchSchools()
+    fetchReports()
   }, [])
-
-  // 国土地理院APIで住所→座標を取得
-  const handleGeocode = async () => {
-    if (!editingAddress) return
-    setGeocoding(true)
-    setGeocodeMsg('')
-    try {
-      const res = await fetch(
-        `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(editingAddress)}`
-      )
-      const data = await res.json()
-      if (data && data.length > 0) {
-        const [lng, lat] = data[0].geometry.coordinates
-        setEditingLat(String(lat))
-        setEditingLng(String(lng))
-        setGeocodeMsg(`✓ 取得成功：${data[0].properties.title}`)
-      } else {
-        setGeocodeMsg('⚠️ 住所が見つかりませんでした')
-      }
-    } catch {
-      setGeocodeMsg('⚠️ 座標取得に失敗しました')
-    }
-    setGeocoding(false)
-  }
 
   const handleApprove = async (id: string) => {
     await fetch('/api/admin/events', {
@@ -232,6 +232,29 @@ export default function AdminPage() {
     setGeocodeMsg('')
   }
 
+  const handleGeocode = async () => {
+    if (!editingAddress) return
+    setGeocoding(true)
+    setGeocodeMsg('')
+    try {
+      const res = await fetch(
+        `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(editingAddress)}`
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        const [lng, lat] = data[0].geometry.coordinates
+        setEditingLat(String(lat))
+        setEditingLng(String(lng))
+        setGeocodeMsg(`✓ 取得成功：${data[0].properties.title}`)
+      } else {
+        setGeocodeMsg('⚠️ 住所が見つかりませんでした')
+      }
+    } catch {
+      setGeocodeMsg('⚠️ 座標取得に失敗しました')
+    }
+    setGeocoding(false)
+  }
+
   const handleSaveSchool = async (schoolId: string) => {
     setSavingSchool(true)
     const urls = editingCrawlUrls
@@ -251,8 +274,19 @@ export default function AdminPage() {
       }),
     })
     await fetchSchools()
-setEditingSchoolId(null)  // ← fetchSchoolsの後にnullにする
-setSavingSchool(false)
+    setEditingSchoolId(null)
+    setSavingSchool(false)
+  }
+
+  const handleResolve = async (id: string) => {
+    setResolvingId(id)
+    await fetch('/api/reports', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'resolved' }),
+    })
+    setResolvingId(null)
+    await fetchReports()
   }
 
   const groupedEvents = events.reduce((acc, ev) => {
@@ -277,6 +311,7 @@ setSavingSchool(false)
   )
 
   const errorSchools = schools.filter(s => s.crawl_error_count > 0)
+  const openReports = reports.filter(r => r.status === 'open')
 
   const inputStyle = {
     flex: 1, padding: '5px 8px',
@@ -284,6 +319,14 @@ setSavingSchool(false)
     fontSize: 13, outline: 'none',
   }
   const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
+
+  const reportTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      date: '📅 日程', time: '🕐 時間', url: '🔗 URL',
+      deadline: '⏰ 締切', missing: '➕ 掲載漏れ', other: '📝 その他',
+    }
+    return map[type] ?? type
+  }
 
   const EventCard = ({ ev, isVerified }: { ev: Event; isVerified: boolean }) => (
     <div style={{
@@ -430,6 +473,7 @@ setSavingSchool(false)
         {([
           { key: 'events', label: `📋 イベント管理` },
           { key: 'schools', label: `🏫 学校・クロール管理${errorSchools.length > 0 ? ` ⚠️${errorSchools.length}件エラー` : ''}` },
+          { key: 'reports', label: `📣 指摘一覧${openReports.length > 0 ? ` 🔴${openReports.length}件` : ''}` },
         ] as const).map(t => (
           <button
             key={t.key}
@@ -452,7 +496,6 @@ setSavingSchool(false)
         {/* ===== イベント管理タブ ===== */}
         {tab === 'events' && (
           <>
-            {/* 手動登録フォーム */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
               boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB',
@@ -536,7 +579,6 @@ setSavingSchool(false)
               )}
             </div>
 
-            {/* 未確認イベント一覧 */}
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, color: '#555' }}>
                 未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件
@@ -575,30 +617,17 @@ setSavingSchool(false)
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}>
                       <div>
-                        <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>
-                          🏫 {schoolName}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>
-                          {schoolEvents.length}件
-                        </span>
-                        <a
-                          href={schoolEvents[0].schools.official_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}
-                        >
-                          公式サイト →
-                        </a>
+                        <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>🏫 {schoolName}</span>
+                        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{schoolEvents.length}件</span>
+                        <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
                       </div>
                       <button
                         onClick={() => handleApproveAll(schoolName, schoolEvents)}
                         disabled={approvingSchool === schoolName}
                         style={{
                           background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A',
-                          color: 'white', border: 'none',
-                          borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                          fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer',
-                          whiteSpace: 'nowrap',
+                          color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                          fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
                         }}
                       >
                         {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
@@ -612,23 +641,15 @@ setSavingSchool(false)
               </div>
             )}
 
-            {/* 掲載済みイベント */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
-              boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5',
-              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5', overflow: 'hidden',
             }}>
               <div
                 onClick={() => setShowVerified(v => !v)}
-                style={{
-                  padding: '14px 18px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: showVerified ? '#F0FFF4' : 'white',
-                }}
+                style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: showVerified ? '#F0FFF4' : 'white' }}
               >
-                <div style={{ fontWeight: 700, color: '#16A34A', fontSize: 14 }}>
-                  ✅ 掲載済みイベント（{verifiedEvents.length}件）
-                </div>
+                <div style={{ fontWeight: 700, color: '#16A34A', fontSize: 14 }}>✅ 掲載済みイベント（{verifiedEvents.length}件）</div>
                 <span style={{ color: '#888', fontSize: 12 }}>{showVerified ? '▲ 閉じる' : '▼ 開く'}</span>
               </div>
               {showVerified && (
@@ -638,11 +659,7 @@ setSavingSchool(false)
                     placeholder="学校名で検索..."
                     value={verifiedSearch}
                     onChange={e => setVerifiedSearch(e.target.value)}
-                    style={{
-                      width: '100%', padding: '8px 12px', marginBottom: 16,
-                      border: '1.5px solid #D1FAE5', borderRadius: 8,
-                      fontSize: 13, outline: 'none', boxSizing: 'border-box',
-                    }}
+                    style={{ width: '100%', padding: '8px 12px', marginBottom: 16, border: '1.5px solid #D1FAE5', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                   />
                   {Object.keys(groupedVerifiedEvents).length === 0 ? (
                     <div style={{ textAlign: 'center', color: '#888', fontSize: 13, padding: '20px 0' }}>
@@ -653,33 +670,14 @@ setSavingSchool(false)
                       {Object.entries(groupedVerifiedEvents)
                         .sort(([a], [b]) => a.localeCompare(b, 'ja'))
                         .map(([schoolName, schoolEvents]) => (
-                          <div key={schoolName} style={{
-                            borderRadius: 10, border: '1px solid #D1FAE5', overflow: 'hidden',
-                          }}>
-                            <div style={{
-                              padding: '10px 14px', background: '#F0FFF4',
-                              borderBottom: '1px solid #D1FAE5',
-                              display: 'flex', alignItems: 'center',
-                            }}>
-                              <span style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>
-                                🏫 {schoolName}
-                              </span>
-                              <span style={{ fontSize: 11, color: '#6B7280', marginLeft: 8 }}>
-                                {schoolEvents.length}件
-                              </span>
-                              <a
-                                href={schoolEvents[0].schools.official_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}
-                              >
-                                公式サイト →
-                              </a>
+                          <div key={schoolName} style={{ borderRadius: 10, border: '1px solid #D1FAE5', overflow: 'hidden' }}>
+                            <div style={{ padding: '10px 14px', background: '#F0FFF4', borderBottom: '1px solid #D1FAE5', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, color: '#065F46', fontSize: 13 }}>🏫 {schoolName}</span>
+                              <span style={{ fontSize: 11, color: '#6B7280', marginLeft: 8 }}>{schoolEvents.length}件</span>
+                              <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
                             </div>
                             <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              {schoolEvents
-                                .sort((a, b) => a.event_date.localeCompare(b.event_date))
-                                .map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+                              {schoolEvents.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
                             </div>
                           </div>
                         ))}
@@ -695,13 +693,8 @@ setSavingSchool(false)
         {tab === 'schools' && (
           <>
             {errorSchools.length > 0 && (
-              <div style={{
-                background: '#FEF2F2', border: '1px solid #FECACA',
-                borderRadius: 10, padding: '14px 18px', marginBottom: 20,
-              }}>
-                <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 14, marginBottom: 8 }}>
-                  ⚠️ クロールエラーが発生している学校（{errorSchools.length}校）
-                </div>
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 14, marginBottom: 8 }}>⚠️ クロールエラーが発生している学校（{errorSchools.length}校）</div>
                 {errorSchools.map(s => (
                   <div key={s.id} style={{ fontSize: 12, color: '#7F1D1D', marginBottom: 4 }}>
                     <strong>{s.name}</strong>（連続{s.crawl_error_count}回）：{s.crawl_error}
@@ -716,24 +709,12 @@ setSavingSchool(false)
                 placeholder="学校名・URLで検索..."
                 value={schoolSearch}
                 onChange={e => setSchoolSearch(e.target.value)}
-                style={{
-                  flex: 1, padding: '8px 12px',
-                  border: '1.5px solid #E5E7EB', borderRadius: 8,
-                  fontSize: 13, outline: 'none',
-                }}
+                style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, outline: 'none' }}
               />
-              <button onClick={fetchSchools} style={{
-                background: 'white', border: '1.5px solid #E5E7EB',
-                borderRadius: 8, padding: '6px 14px', fontSize: 12,
-                cursor: 'pointer', color: '#555',
-              }}>
-                🔄 更新
-              </button>
+              <button onClick={fetchSchools} style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#555' }}>🔄 更新</button>
             </div>
 
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>
-              {filteredSchools.length}校表示中（全{schools.length}校）
-            </div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>{filteredSchools.length}校表示中（全{schools.length}校）</div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filteredSchools.map(school => (
@@ -746,185 +727,84 @@ setSavingSchool(false)
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>{school.name}</span>
-                        <span style={{
-                          fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700,
-                          background: school.crawl_enabled ? '#D1FAE5' : '#F3F4F6',
-                          color: school.crawl_enabled ? '#065F46' : '#6B7280',
-                        }}>
+                        <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700, background: school.crawl_enabled ? '#D1FAE5' : '#F3F4F6', color: school.crawl_enabled ? '#065F46' : '#6B7280' }}>
                           {school.crawl_enabled ? '🟢 クロール有効' : '⚫ 無効'}
                         </span>
                         {school.crawl_error_count > 0 && (
-                          <span style={{
-                            fontSize: 11, padding: '1px 7px', borderRadius: 10,
-                            background: '#FEE2E2', color: '#DC2626', fontWeight: 700,
-                          }}>
-                            ⚠️ エラー{school.crawl_error_count}回
-                          </span>
+                          <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#FEE2E2', color: '#DC2626', fontWeight: 700 }}>⚠️ エラー{school.crawl_error_count}回</span>
                         )}
                       </div>
                       {editingSchoolId !== school.id && (
-                        <button onClick={() => startEditSchool(school)} style={{
-                          background: '#EFF6FF', color: '#2563EB', border: 'none',
-                          borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                          fontWeight: 700, cursor: 'pointer',
-                        }}>
-                          ✏️ 編集
-                        </button>
+                        <button onClick={() => startEditSchool(school)} style={{ background: '#EFF6FF', color: '#2563EB', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✏️ 編集</button>
                       )}
                     </div>
 
                     <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
                       📍 {school.address ?? '住所未設定'}
-                      {school.lat && school.lng && (
-                        <span style={{ marginLeft: 8, color: '#aaa' }}>
-                          ({school.lat.toFixed(4)}, {school.lng.toFixed(4)})
-                        </span>
-                      )}
+                      {school.lat && school.lng && <span style={{ marginLeft: 8, color: '#aaa' }}>({school.lat.toFixed(4)}, {school.lng.toFixed(4)})</span>}
                     </div>
 
                     <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>
-                      最終クロール：{school.last_crawled_at
-                        ? new Date(school.last_crawled_at).toLocaleString('ja-JP')
-                        : '未実行'}
+                      最終クロール：{school.last_crawled_at ? new Date(school.last_crawled_at).toLocaleString('ja-JP') : '未実行'}
                     </div>
+
                     {school.crawl_error && (
-                      <div style={{
-                        fontSize: 11, color: '#DC2626', background: '#FEF2F2',
-                        padding: '4px 8px', borderRadius: 4, marginBottom: 8,
-                      }}>
-                        ❌ {school.crawl_error}
-                      </div>
+                      <div style={{ fontSize: 11, color: '#DC2626', background: '#FEF2F2', padding: '4px 8px', borderRadius: 4, marginBottom: 8 }}>❌ {school.crawl_error}</div>
                     )}
 
                     {editingSchoolId === school.id ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
-
-                        {/* 住所・座標セクション */}
-                        <div style={{
-                          background: '#F8FAFC', borderRadius: 8, padding: '12px',
-                          border: '1px solid #E5E7EB',
-                        }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>
-                            📍 住所・座標
-                          </div>
+                        <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '12px', border: '1px solid #E5E7EB' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>📍 住所・座標</div>
                           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                             <input
                               type="text"
                               placeholder="例：広島市南区宇品海岸1丁目"
                               value={editingAddress}
                               onChange={e => setEditingAddress(e.target.value)}
-                              style={{
-                                flex: 1, padding: '6px 10px',
-                                border: '1.5px solid #E5E7EB', borderRadius: 6,
-                                fontSize: 12, outline: 'none',
-                              }}
+                              style={{ flex: 1, padding: '6px 10px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none' }}
                             />
                             <button
                               onClick={handleGeocode}
                               disabled={geocoding || !editingAddress}
-                              style={{
-                                background: geocoding ? '#9CA3AF' : '#2563EB',
-                                color: 'white', border: 'none',
-                                borderRadius: 6, padding: '6px 12px', fontSize: 11,
-                                fontWeight: 700, cursor: geocoding ? 'not-allowed' : 'pointer',
-                                whiteSpace: 'nowrap',
-                              }}
+                              style={{ background: geocoding ? '#9CA3AF' : '#2563EB', color: 'white', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: geocoding ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                             >
                               {geocoding ? '取得中...' : '📍 座標を自動取得'}
                             </button>
                           </div>
-                          {geocodeMsg && (
-                            <div style={{
-                              fontSize: 11, marginBottom: 8,
-                              color: geocodeMsg.startsWith('✓') ? '#16A34A' : '#DC2626',
-                            }}>
-                              {geocodeMsg}
-                            </div>
-                          )}
+                          {geocodeMsg && <div style={{ fontSize: 11, marginBottom: 8, color: geocodeMsg.startsWith('✓') ? '#16A34A' : '#DC2626' }}>{geocodeMsg}</div>}
                           <div style={{ display: 'flex', gap: 8 }}>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>緯度（lat）</div>
-                              <input
-                                type="number"
-                                step="0.0001"
-                                placeholder="34.xxxx"
-                                value={editingLat}
-                                onChange={e => setEditingLat(e.target.value)}
-                                style={{
-                                  width: '100%', padding: '6px 8px',
-                                  border: '1.5px solid #E5E7EB', borderRadius: 6,
-                                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
-                                }}
-                              />
+                              <input type="number" step="0.0001" placeholder="34.xxxx" value={editingLat} onChange={e => setEditingLat(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                             </div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>経度（lng）</div>
-                              <input
-                                type="number"
-                                step="0.0001"
-                                placeholder="132.xxxx"
-                                value={editingLng}
-                                onChange={e => setEditingLng(e.target.value)}
-                                style={{
-                                  width: '100%', padding: '6px 8px',
-                                  border: '1.5px solid #E5E7EB', borderRadius: 6,
-                                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
-                                }}
-                              />
+                              <input type="number" step="0.0001" placeholder="132.xxxx" value={editingLng} onChange={e => setEditingLng(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                             </div>
                           </div>
                         </div>
 
-                        {/* クロールURLセクション */}
-                        <div style={{
-                          background: '#F8FAFC', borderRadius: 8, padding: '12px',
-                          border: '1px solid #E5E7EB',
-                        }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>
-                            🔗 クロールURL
-                          </div>
-                          <label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 4 }}>
-                            1行に1URL
-                          </label>
+                        <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '12px', border: '1px solid #E5E7EB' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>🔗 クロールURL</div>
+                          <label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 4 }}>1行に1URL</label>
                           <textarea
                             value={editingCrawlUrls}
                             onChange={e => setEditingCrawlUrls(e.target.value)}
                             rows={3}
-                            style={{
-                              width: '100%', padding: '8px',
-                              border: '1.5px solid #3B82F6', borderRadius: 6,
-                              fontSize: 12, fontFamily: 'monospace',
-                              resize: 'vertical', boxSizing: 'border-box',
-                            }}
+                            style={{ width: '100%', padding: '8px', border: '1.5px solid #3B82F6', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
                           />
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                             <label style={{ fontSize: 12, color: '#555' }}>クロール有効</label>
-                            <input
-                              type="checkbox"
-                              checked={editingCrawlEnabled}
-                              onChange={e => setEditingCrawlEnabled(e.target.checked)}
-                            />
+                            <input type="checkbox" checked={editingCrawlEnabled} onChange={e => setEditingCrawlEnabled(e.target.checked)} />
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            onClick={() => handleSaveSchool(school.id)}
-                            disabled={savingSchool}
-                            style={{
-                              background: '#1a2742', color: 'white', border: 'none',
-                              borderRadius: 6, padding: '8px 20px', fontSize: 12,
-                              fontWeight: 700, cursor: savingSchool ? 'not-allowed' : 'pointer',
-                            }}
-                          >
+                          <button onClick={() => handleSaveSchool(school.id)} disabled={savingSchool} style={{ background: '#1a2742', color: 'white', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 12, fontWeight: 700, cursor: savingSchool ? 'not-allowed' : 'pointer' }}>
                             {savingSchool ? '保存中...' : '💾 保存'}
                           </button>
-                          <button onClick={() => setEditingSchoolId(null)} style={{
-                            background: '#F3F4F6', color: '#555', border: 'none',
-                            borderRadius: 6, padding: '8px 14px', fontSize: 12, cursor: 'pointer',
-                          }}>
-                            キャンセル
-                          </button>
+                          <button onClick={() => setEditingSchoolId(null)} style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>キャンセル</button>
                         </div>
                       </div>
                     ) : (
@@ -933,9 +813,7 @@ setSavingSchool(false)
                           <div style={{ fontSize: 11, color: '#EF4444' }}>⚠️ クロールURL未設定</div>
                         ) : (
                           (school.crawl_urls ?? []).map((url, i) => (
-                            <div key={i} style={{ fontSize: 11, color: '#2563EB', wordBreak: 'break-all' }}>
-                              🔗 {url}
-                            </div>
+                            <div key={i} style={{ fontSize: 11, color: '#2563EB', wordBreak: 'break-all' }}>🔗 {url}</div>
                           ))
                         )}
                       </div>
@@ -946,6 +824,86 @@ setSavingSchool(false)
             </div>
           </>
         )}
+
+        {/* ===== 指摘一覧タブ ===== */}
+        {tab === 'reports' && (
+          <>
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 14, color: '#555' }}>
+                未対応：<strong style={{ color: '#DC2626', fontSize: 18 }}>{openReports.length}</strong> 件　
+                対応済：<strong style={{ color: '#16A34A', fontSize: 18 }}>{reports.filter(r => r.status === 'resolved').length}</strong> 件
+              </div>
+              <button onClick={fetchReports} style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#555' }}>🔄 更新</button>
+            </div>
+
+            {reports.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', background: 'white', borderRadius: 12, color: '#888', fontSize: 14 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📣</div>
+                指摘はまだありません
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {reports.map(r => (
+                  <div key={r.id} style={{
+                    background: 'white', borderRadius: 10,
+                    border: `1px solid ${r.status === 'open' ? '#FECACA' : '#D1FAE5'}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,.05)', overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>
+                            {r.school_name_text || r.schools?.name || '学校未指定'}
+                          </span>
+                          <span style={{
+                            fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700,
+                            background: r.status === 'open' ? '#FEE2E2' : '#D1FAE5',
+                            color: r.status === 'open' ? '#DC2626' : '#065F46',
+                          }}>
+                            {r.status === 'open' ? '🔴 未対応' : '✅ 対応済'}
+                          </span>
+                          <span style={{ fontSize: 11, color: '#6B7280' }}>
+                            {new Date(r.created_at).toLocaleString('ja-JP')}
+                          </span>
+                        </div>
+                        {r.status === 'open' && (
+                          <button
+                            onClick={() => handleResolve(r.id)}
+                            disabled={resolvingId === r.id}
+                            style={{ background: resolvingId === r.id ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: resolvingId === r.id ? 'not-allowed' : 'pointer' }}
+                          >
+                            {resolvingId === r.id ? '処理中...' : '✅ 対応済にする'}
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
+                        <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700, marginRight: 8 }}>
+                          {reportTypeLabel(r.report_type)}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: 13, color: '#374151', marginBottom: r.suggested_value ? 8 : 0 }}>
+                        {r.description}
+                      </div>
+
+                      {r.suggested_value && (
+                        <div style={{ background: '#F0FFF4', border: '1px solid #D1FAE5', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#065F46' }}>
+                          💡 正しい値：<strong>{r.suggested_value}</strong>
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>
+                        投稿者：{r.reporter_name || ''} {r.reporter_email}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
       </div>
     </div>
   )
