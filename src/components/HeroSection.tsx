@@ -1,5 +1,4 @@
 'use client'
-
 export default function HeroSection() {
   return (
     <>
@@ -42,6 +41,34 @@ export default function HeroSection() {
           </p>
         </div>
       </section>
+
+      {/* 情報誤り報告バナー */}
+      <div style={{
+        background: '#F0FFF4',
+        borderBottom: '1px solid #D1FAE5',
+        padding: '10px 20px',
+      }}>
+        <div style={{
+          maxWidth: 1100, margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 8,
+        }}>
+          <span style={{ fontSize: 13, color: '#065F46' }}>
+            📣 日程・時間・URLなど、情報の誤りに気づいた先生はこちら
+          </span>
+          
+            href="/report"
+            style={{
+              background: '#16A34A', color: 'white',
+              padding: '6px 16px', borderRadius: 6,
+              fontSize: 12, fontWeight: 700,
+              textDecoration: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            誤り・漏れを報告する →
+          </a>
+        </div>
+      </div>
     </>
   )
 }
