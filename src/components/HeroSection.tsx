@@ -57,7 +57,7 @@ export default function HeroSection() {
           <span style={{ fontSize: 13, color: '#065F46' }}>
             📣 日程・時間・URLなど、情報の誤りに気づいた先生はこちら
           </span>
-          
+          <a
             href="/report"
             style={{
               background: '#16A34A', color: 'white',
