@@ -25,8 +25,8 @@ function matchesFilter(school: SchoolWithEvents, filter: SchoolFilter): boolean 
     case 'high_public':  return school.school_type === 'high' && school.is_public
     case 'high_private': return school.school_type === 'high' && !school.is_public
     case 'tsushin':      return school.school_type === 'tsushin'
-    case 'senmon':       return school.school_type === 'senmon'
-    case 'senmon_kouto':  return school.school_type === 'senmon_kouto'
+    case 'senmon_kouto': return school.school_type === 'senmon_kouto'
+    case 'kosen':        return school.school_type === 'kosen'
   }
 }
 
