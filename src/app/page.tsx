@@ -115,8 +115,8 @@ export default function HomePage() {
     high_public:  allResults.filter(s => s.school_type === 'high' && s.is_public).length,
     high_private: allResults.filter(s => s.school_type === 'high' && !s.is_public).length,
     tsushin:      allResults.filter(s => s.school_type === 'tsushin').length,
-    senmon:       allResults.filter(s => s.school_type === 'senmon').length,
     senmon_kouto: allResults.filter(s => s.school_type === 'senmon_kouto').length,
+    kosen:        allResults.filter(s => s.school_type === 'kosen').length,
   }), [allResults])
 
   const hasActiveSearch = filters.middleSchoolId || filters.keyword.trim() || filters.distanceKm < 999
