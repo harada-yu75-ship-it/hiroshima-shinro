@@ -22,7 +22,7 @@ const FIELD_PLACEHOLDER: Record<string, string> = {
   url: '例：https://...',
   deadline: '例：2026-08-05',
   missing: '例：8/10（月）13:00〜 オープンスクール、申込URL: https://...',
-  other: '正しい内容を入力してください',
+  other: '内容を入力してください',
 }
 
 export default function ReportPage() {
