@@ -203,25 +203,31 @@ export default function ReportPage() {
                         <span style={{ fontSize: 13, color: NAVY }}>{t.label}</span>
                       </label>
                       {/* 選択時に正しい値入力欄を表示 */}
-                      {isSelected && (
-                        <div style={{ marginTop: 6, marginLeft: 12 }}>
-                          <input
-                            type="text"
-                            placeholder={FIELD_PLACEHOLDER[t.value] ?? '正しい値を入力'}
-                            value={suggestedValues[t.value] ?? ''}
-                            onChange={e => setSuggestedValues(prev => ({ ...prev, [t.value]: e.target.value }))}
-                            style={{
-                              width: '100%', padding: '8px 12px',
-                              border: `1.5px solid ${suggestedValues[t.value]?.trim() ? '#16A34A' : '#FECACA'}`,
-                              borderRadius: 6, fontSize: 13, outline: 'none',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                          <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>
-                            {!suggestedValues[t.value]?.trim() && '正しい値を入力してください（必須）'}
-                          </div>
-                        </div>
-                      )}
+                     {isSelected && (
+  <div style={{ marginTop: 6, marginLeft: 12 }}>
+    <input
+      type="text"
+      placeholder={FIELD_PLACEHOLDER[t.value] ?? '正しい値を入力'}
+      value={suggestedValues[t.value] ?? ''}
+      onChange={e => setSuggestedValues(prev => ({ ...prev, [t.value]: e.target.value }))}
+      style={{
+        width: '100%', padding: '8px 12px',
+        border: `1.5px solid ${
+          t.value === 'other'
+            ? '#E5E7EB'
+            : suggestedValues[t.value]?.trim() ? '#16A34A' : '#FECACA'
+        }`,
+        borderRadius: 6, fontSize: 13, outline: 'none',
+        boxSizing: 'border-box',
+      }}
+    />
+    {t.value !== 'other' && !suggestedValues[t.value]?.trim() && (
+      <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>
+        正しい値を入力してください（必須）
+      </div>
+    )}
+  </div>
+)}
                     </div>
                   )
                 })}
