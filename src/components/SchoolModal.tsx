@@ -14,8 +14,8 @@ interface Props {
 const TYPE_CONFIG = {
   high:         { label: '全日制高校',   bg: '#FDECEA', color: '#C0392B', accent: '#C0392B' },
   tsushin:      { label: '通信制高校',   bg: '#EDE9FF', color: '#5B4FCF', accent: '#7B68EE' },
-  senmon:       { label: '専門学校',     bg: '#FEF7E0', color: '#A07020', accent: '#D4A843' },
   senmon_kouto: { label: '高等専修学校', bg: '#E8F5E9', color: '#2E8B57', accent: '#2E8B57' },
+  kosen:        { label: '高等専門学校', bg: '#E0F4F7', color: '#1a7a8a', accent: '#1a7a8a' },
 }
 
 export default function SchoolModal({ school, onClose }: Props) {
