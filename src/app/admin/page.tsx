@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Event {
@@ -56,6 +56,151 @@ const EMPTY_FORM = {
   notes: '',
   application_url: '',
   application_deadline: '',
+}
+
+// EventCardを外部コンポーネントとして定義（再レンダリング問題を防ぐ）
+interface EventCardProps {
+  ev: Event
+  isVerified: boolean
+  editingId: string | null
+  editData: Partial<Event>
+  onStartEdit: (ev: Event) => void
+  onCancelEdit: () => void
+  onUpdate: (id: string) => void
+  onApprove: (id: string) => void
+  onDelete: (id: string) => void
+  onEditDataChange: (data: Partial<Event>) => void
+}
+
+function EventCard({
+  ev, isVerified, editingId, editData,
+  onStartEdit, onCancelEdit, onUpdate, onApprove, onDelete, onEditDataChange
+}: EventCardProps) {
+  const inputStyle = {
+    flex: 1, padding: '5px 8px',
+    border: '1.5px solid #E5E7EB', borderRadius: 6,
+    fontSize: 13, outline: 'none',
+  }
+  const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
+
+  return (
+    <div style={{
+      background: 'white', borderRadius: 8,
+      border: `1px solid ${isVerified ? '#D1FAE5' : '#E5E7EB'}`,
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            {editingId === ev.id ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { label: 'イベント名', key: 'event_name', type: 'text' },
+                  { label: '開催日', key: 'event_date', type: 'date' },
+                  { label: '時間', key: 'event_time', type: 'text' },
+                  { label: '申込締切日', key: 'application_deadline', type: 'date' },
+                  { label: '申込URL', key: 'application_url', type: 'text' },
+                  { label: '備考', key: 'notes', type: 'text' },
+                ].map(({ label, key, type }) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      type={type}
+                      value={(editData as any)[key] ?? ''}
+                      onChange={e => onEditDataChange({ ...editData, [key]: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <label style={labelStyle}>要申込</label>
+                  <select
+                    value={editData.requires_application === true ? 'true' : editData.requires_application === false ? 'false' : ''}
+                    onChange={e => onEditDataChange({
+                      ...editData,
+                      requires_application: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null
+                    })}
+                    style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
+                  >
+                    <option value="">不明</option>
+                    <option value="true">要申込</option>
+                    <option value="false">申込不要</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 3 }}>
+                  {ev.event_name}
+                </div>
+                <div style={{ fontSize: 12, color: '#555', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <span>📅 {ev.event_date}</span>
+                  {ev.event_time && <span>🕐 {ev.event_time}</span>}
+                  {ev.requires_application !== null && (
+                    <span style={{
+                      background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
+                      color: ev.requires_application ? '#A07020' : '#2E7D32',
+                      padding: '1px 6px', borderRadius: 3, fontSize: 11, fontWeight: 700,
+                    }}>
+                      {ev.requires_application ? '要申込' : '申込不要'}
+                    </span>
+                  )}
+                  {ev.application_deadline && <span>⏰ 締切：{ev.application_deadline}</span>}
+                </div>
+                {ev.notes && <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>📝 {ev.notes}</div>}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+            {editingId === ev.id ? (
+              <>
+                <button onClick={() => onUpdate(ev.id)} style={{
+                  background: '#16A34A', color: 'white', border: 'none',
+                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                  fontWeight: 700, cursor: 'pointer',
+                }}>
+                  💾 保存
+                </button>
+                <button onClick={onCancelEdit} style={{
+                  background: '#F3F4F6', color: '#555', border: 'none',
+                  borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+                }}>
+                  キャンセル
+                </button>
+              </>
+            ) : (
+              <>
+                {!isVerified && (
+                  <button onClick={() => onApprove(ev.id)} style={{
+                    background: '#1a2742', color: 'white', border: 'none',
+                    borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                    fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    ✅ 承認
+                  </button>
+                )}
+                <button onClick={() => onStartEdit(ev)} style={{
+                  background: '#EFF6FF', color: '#2563EB', border: 'none',
+                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                  fontWeight: 700, cursor: 'pointer',
+                }}>
+                  ✏️ 修正
+                </button>
+                <button onClick={() => onDelete(ev.id)} style={{
+                  background: '#FEF2F2', color: '#DC2626', border: 'none',
+                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
+                  fontWeight: 700, cursor: 'pointer',
+                }}>
+                  🗑️ 削除
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function AdminPage() {
@@ -121,14 +266,14 @@ export default function AdminPage() {
     fetchReports()
   }, [])
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = useCallback(async (id: string) => {
     await fetch('/api/admin/events', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'approve' }),
     })
     fetchEvents()
-  }
+  }, [])
 
   const handleApproveAll = async (schoolName: string, schoolEvents: Event[]) => {
     setApprovingSchool(schoolName)
@@ -143,7 +288,7 @@ export default function AdminPage() {
     await fetchEvents()
   }
 
-  const handleUpdate = async (id: string) => {
+  const handleUpdate = useCallback(async (id: string) => {
     await fetch('/api/admin/events', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -152,9 +297,9 @@ export default function AdminPage() {
     setEditingId(null)
     setEditData({})
     await fetchEvents()
-  }
+  }, [editData])
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('このイベントを削除しますか？')) return
     await fetch('/api/admin/events', {
       method: 'DELETE',
@@ -162,7 +307,7 @@ export default function AdminPage() {
       body: JSON.stringify({ id }),
     })
     fetchEvents()
-  }
+  }, [])
 
   const handleAdd = async () => {
     setAddError('')
@@ -208,7 +353,7 @@ export default function AdminPage() {
     router.push('/admin/login')
   }
 
-  const startEdit = (ev: Event) => {
+  const startEdit = useCallback((ev: Event) => {
     setEditingId(ev.id)
     setEditData({
       event_name: ev.event_name,
@@ -220,7 +365,12 @@ export default function AdminPage() {
       application_url: ev.application_url ?? '',
       application_deadline: ev.application_deadline ?? '',
     })
-  }
+  }, [])
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null)
+    setEditData({})
+  }, [])
 
   const startEditSchool = (school: School) => {
     setEditingSchoolId(school.id)
@@ -313,13 +463,6 @@ export default function AdminPage() {
   const errorSchools = schools.filter(s => s.crawl_error_count > 0)
   const openReports = reports.filter(r => r.status === 'open')
 
-  const inputStyle = {
-    flex: 1, padding: '5px 8px',
-    border: '1.5px solid #E5E7EB', borderRadius: 6,
-    fontSize: 13, outline: 'none',
-  }
-  const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
-
   const reportTypeLabel = (type: string) => {
     const map: Record<string, string> = {
       date: '📅 日程', time: '🕐 時間', url: '🔗 URL',
@@ -328,124 +471,12 @@ export default function AdminPage() {
     return map[type] ?? type
   }
 
-  const EventCard = ({ ev, isVerified }: { ev: Event; isVerified: boolean }) => (
-    <div style={{
-      background: 'white', borderRadius: 8,
-      border: `1px solid ${isVerified ? '#D1FAE5' : '#E5E7EB'}`,
-      overflow: 'hidden',
-    }}>
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            {editingId === ev.id ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { label: 'イベント名', key: 'event_name', type: 'text' },
-                  { label: '開催日', key: 'event_date', type: 'date' },
-                  { label: '時間', key: 'event_time', type: 'text' },
-                  { label: '申込締切日', key: 'application_deadline', type: 'date' },
-                  { label: '申込URL', key: 'application_url', type: 'text' },
-                  { label: '備考', key: 'notes', type: 'text' },
-                ].map(({ label, key, type }) => (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={labelStyle}>{label}</label>
-                    <input
-                      type={type}
-                      value={(editData as any)[key] ?? ''}
-                      onChange={e => setEditData(d => ({ ...d, [key]: e.target.value }))}
-                      style={inputStyle}
-                    />
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={labelStyle}>要申込</label>
-                  <select
-                    value={editData.requires_application === true ? 'true' : editData.requires_application === false ? 'false' : ''}
-                    onChange={e => setEditData(d => ({
-                      ...d,
-                      requires_application: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null
-                    }))}
-                    style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
-                  >
-                    <option value="">不明</option>
-                    <option value="true">要申込</option>
-                    <option value="false">申込不要</option>
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 3 }}>
-                  {ev.event_name}
-                </div>
-                <div style={{ fontSize: 12, color: '#555', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <span>📅 {ev.event_date}</span>
-                  {ev.event_time && <span>🕐 {ev.event_time}</span>}
-                  {ev.requires_application !== null && (
-                    <span style={{
-                      background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
-                      color: ev.requires_application ? '#A07020' : '#2E7D32',
-                      padding: '1px 6px', borderRadius: 3, fontSize: 11, fontWeight: 700,
-                    }}>
-                      {ev.requires_application ? '要申込' : '申込不要'}
-                    </span>
-                  )}
-                  {ev.application_deadline && <span>⏰ 締切：{ev.application_deadline}</span>}
-                </div>
-                {ev.notes && <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>📝 {ev.notes}</div>}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-            {editingId === ev.id ? (
-              <>
-                <button onClick={() => handleUpdate(ev.id)} style={{
-                  background: '#16A34A', color: 'white', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>
-                  💾 保存
-                </button>
-                <button onClick={() => { setEditingId(null); setEditData({}) }} style={{
-                  background: '#F3F4F6', color: '#555', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-                }}>
-                  キャンセル
-                </button>
-              </>
-            ) : (
-              <>
-                {!isVerified && (
-                  <button onClick={() => handleApprove(ev.id)} style={{
-                    background: '#1a2742', color: 'white', border: 'none',
-                    borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                    fontWeight: 700, cursor: 'pointer',
-                  }}>
-                    ✅ 承認
-                  </button>
-                )}
-                <button onClick={() => startEdit(ev)} style={{
-                  background: '#EFF6FF', color: '#2563EB', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>
-                  ✏️ 修正
-                </button>
-                <button onClick={() => handleDelete(ev.id)} style={{
-                  background: '#FEF2F2', color: '#DC2626', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>
-                  🗑️ 削除
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const inputStyle = {
+    flex: 1, padding: '5px 8px',
+    border: '1.5px solid #E5E7EB', borderRadius: 6,
+    fontSize: 13, outline: 'none',
+  }
+  const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FA' }}>
@@ -496,6 +527,7 @@ export default function AdminPage() {
         {/* ===== イベント管理タブ ===== */}
         {tab === 'events' && (
           <>
+            {/* 手動登録フォーム */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
               boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB',
@@ -579,6 +611,7 @@ export default function AdminPage() {
               )}
             </div>
 
+            {/* 未確認イベント一覧 */}
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, color: '#555' }}>
                 未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件
@@ -634,13 +667,28 @@ export default function AdminPage() {
                       </button>
                     </div>
                     <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {schoolEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} />)}
+                      {schoolEvents.map(ev => (
+                        <EventCard
+                          key={ev.id}
+                          ev={ev}
+                          isVerified={false}
+                          editingId={editingId}
+                          editData={editData}
+                          onStartEdit={startEdit}
+                          onCancelEdit={cancelEdit}
+                          onUpdate={handleUpdate}
+                          onApprove={handleApprove}
+                          onDelete={handleDelete}
+                          onEditDataChange={setEditData}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* 掲載済みイベント */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
               boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5', overflow: 'hidden',
@@ -677,7 +725,21 @@ export default function AdminPage() {
                               <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
                             </div>
                             <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              {schoolEvents.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} />)}
+                              {schoolEvents.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => (
+                                <EventCard
+                                  key={ev.id}
+                                  ev={ev}
+                                  isVerified={true}
+                                  editingId={editingId}
+                                  editData={editData}
+                                  onStartEdit={startEdit}
+                                  onCancelEdit={cancelEdit}
+                                  onUpdate={handleUpdate}
+                                  onApprove={handleApprove}
+                                  onDelete={handleDelete}
+                                  onEditDataChange={setEditData}
+                                />
+                              ))}
                             </div>
                           </div>
                         ))}
@@ -903,7 +965,6 @@ export default function AdminPage() {
             )}
           </>
         )}
-
       </div>
     </div>
   )
