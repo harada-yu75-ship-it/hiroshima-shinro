@@ -38,6 +38,7 @@ interface Report {
   report_type: string
   description: string
   suggested_value: string | null
+  suggested_values: Record<string, string> | null
   reporter_email: string
   reporter_name: string | null
   status: string
@@ -58,6 +59,18 @@ const EMPTY_FORM = {
   application_deadline: '',
 }
 
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  date: '📅 日程', time: '🕐 時間', url: '🔗 URL',
+  deadline: '⏰ 締切', missing: '➕ 掲載漏れ', other: '📝 その他',
+}
+
+// report_typeからeventフィールドへのマッピング
+const TYPE_TO_FIELD: Record<string, string> = {
+  url: 'application_url',
+  deadline: 'application_deadline',
+  time: 'event_time',
+}
+
 interface EventCardProps {
   ev: Event
   isVerified: boolean
@@ -75,19 +88,11 @@ function EventCard({
   ev, isVerified, editingId, editData,
   onStartEdit, onCancelEdit, onUpdate, onApprove, onDelete, onEditDataChange
 }: EventCardProps) {
-  const inputStyle = {
-    flex: 1, padding: '5px 8px',
-    border: '1.5px solid #E5E7EB', borderRadius: 6,
-    fontSize: 13, outline: 'none',
-  }
+  const inputStyle = { flex: 1, padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13, outline: 'none' }
   const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
 
   return (
-    <div style={{
-      background: 'white', borderRadius: 8,
-      border: `1px solid ${isVerified ? '#D1FAE5' : '#E5E7EB'}`,
-      overflow: 'hidden',
-    }}>
+    <div style={{ background: 'white', borderRadius: 8, border: `1px solid ${isVerified ? '#D1FAE5' : '#E5E7EB'}`, overflow: 'hidden' }}>
       <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -103,24 +108,12 @@ function EventCard({
                 ].map(({ label, key, type }) => (
                   <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <label style={labelStyle}>{label}</label>
-                    <input
-                      type={type}
-                      value={(editData as any)[key] ?? ''}
-                      onChange={e => onEditDataChange({ ...editData, [key]: e.target.value })}
-                      style={inputStyle}
-                    />
+                    <input type={type} value={(editData as any)[key] ?? ''} onChange={e => onEditDataChange({ ...editData, [key]: e.target.value })} style={inputStyle} />
                   </div>
                 ))}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <label style={labelStyle}>要申込</label>
-                  <select
-                    value={editData.requires_application === true ? 'true' : editData.requires_application === false ? 'false' : ''}
-                    onChange={e => onEditDataChange({
-                      ...editData,
-                      requires_application: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null
-                    })}
-                    style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}
-                  >
+                  <select value={editData.requires_application === true ? 'true' : editData.requires_application === false ? 'false' : ''} onChange={e => onEditDataChange({ ...editData, requires_application: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null })} style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}>
                     <option value="">不明</option>
                     <option value="true">要申込</option>
                     <option value="false">申込不要</option>
@@ -129,18 +122,12 @@ function EventCard({
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 3 }}>
-                  {ev.event_name}
-                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 3 }}>{ev.event_name}</div>
                 <div style={{ fontSize: 12, color: '#555', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <span>📅 {ev.event_date}</span>
                   {ev.event_time && <span>🕐 {ev.event_time}</span>}
                   {ev.requires_application !== null && (
-                    <span style={{
-                      background: ev.requires_application ? '#FEF7E0' : '#E8F5E9',
-                      color: ev.requires_application ? '#A07020' : '#2E7D32',
-                      padding: '1px 6px', borderRadius: 3, fontSize: 11, fontWeight: 700,
-                    }}>
+                    <span style={{ background: ev.requires_application ? '#FEF7E0' : '#E8F5E9', color: ev.requires_application ? '#A07020' : '#2E7D32', padding: '1px 6px', borderRadius: 3, fontSize: 11, fontWeight: 700 }}>
                       {ev.requires_application ? '要申込' : '申込不要'}
                     </span>
                   )}
@@ -150,39 +137,17 @@ function EventCard({
               </div>
             )}
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
             {editingId === ev.id ? (
               <>
-                <button onClick={() => onUpdate(ev.id)} style={{
-                  background: '#16A34A', color: 'white', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>💾 保存</button>
-                <button onClick={onCancelEdit} style={{
-                  background: '#F3F4F6', color: '#555', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-                }}>キャンセル</button>
+                <button onClick={() => onUpdate(ev.id)} style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>💾 保存</button>
+                <button onClick={onCancelEdit} style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>キャンセル</button>
               </>
             ) : (
               <>
-                {!isVerified && (
-                  <button onClick={() => onApprove(ev.id)} style={{
-                    background: '#1a2742', color: 'white', border: 'none',
-                    borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                    fontWeight: 700, cursor: 'pointer',
-                  }}>✅ 承認</button>
-                )}
-                <button onClick={() => onStartEdit(ev)} style={{
-                  background: '#EFF6FF', color: '#2563EB', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>✏️ 修正</button>
-                <button onClick={() => onDelete(ev.id)} style={{
-                  background: '#FEF2F2', color: '#DC2626', border: 'none',
-                  borderRadius: 6, padding: '6px 14px', fontSize: 12,
-                  fontWeight: 700, cursor: 'pointer',
-                }}>🗑️ 削除</button>
+                {!isVerified && <button onClick={() => onApprove(ev.id)} style={{ background: '#1a2742', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✅ 承認</button>}
+                <button onClick={() => onStartEdit(ev)} style={{ background: '#EFF6FF', color: '#2563EB', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✏️ 修正</button>
+                <button onClick={() => onDelete(ev.id)} style={{ background: '#FEF2F2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🗑️ 削除</button>
               </>
             )}
           </div>
@@ -192,11 +157,11 @@ function EventCard({
   )
 }
 
-// 指摘からイベントに適用するパネル
+// イベント適用パネル
 interface ApplyPanelProps {
   report: Report
   verifiedEvents: Event[]
-  onApply: (reportId: string, eventId: string, field: string, value: string) => Promise<void>
+  onApply: (reportId: string, eventId: string, updates: Record<string, string>) => Promise<void>
   onClose: () => void
 }
 
@@ -204,78 +169,146 @@ function ApplyPanel({ report, verifiedEvents, onApply, onClose }: ApplyPanelProp
   const [selectedEventId, setSelectedEventId] = useState('')
   const [applying, setApplying] = useState(false)
 
-  // 学校名でイベントを絞り込む
   const schoolName = report.school_name_text || report.schools?.name || ''
   const filteredEvents = verifiedEvents.filter(ev =>
     !schoolName || ev.schools.name.includes(schoolName) || schoolName.includes(ev.schools.name)
   )
 
-  // report_typeから適用フィールドを判定
-  const field = report.report_type === 'deadline' ? 'application_deadline'
-    : report.report_type === 'url' ? 'application_url'
-    : report.report_type === 'time' ? 'event_time'
-    : 'notes'
-
-  const fieldLabel = field === 'application_deadline' ? '申込締切日'
-    : field === 'application_url' ? '申込URL'
-    : field === 'event_time' ? '時間'
-    : '備考'
+  // 適用可能なフィールドを抽出
+  const sv = report.suggested_values ?? {}
+  const applicableTypes = Object.keys(sv).filter(t => TYPE_TO_FIELD[t])
+  const updates: Record<string, string> = {}
+  applicableTypes.forEach(t => { updates[TYPE_TO_FIELD[t]] = sv[t] })
 
   const handleApply = async () => {
-    if (!selectedEventId || !report.suggested_value) return
+    if (!selectedEventId || Object.keys(updates).length === 0) return
     setApplying(true)
-    await onApply(report.id, selectedEventId, field, report.suggested_value)
+    await onApply(report.id, selectedEventId, updates)
     setApplying(false)
     onClose()
   }
 
   return (
-    <div style={{
-      background: '#F0FFF4', border: '1px solid #D1FAE5',
-      borderRadius: 8, padding: '12px', marginTop: 8,
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#065F46', marginBottom: 8 }}>
-        🔗 イベントに適用：<span style={{ color: '#2563EB' }}>{fieldLabel}</span> = <strong>{report.suggested_value}</strong>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select
-          value={selectedEventId}
-          onChange={e => setSelectedEventId(e.target.value)}
-          style={{
-            flex: 1, minWidth: 200, padding: '6px 10px',
-            border: '1.5px solid #D1FAE5', borderRadius: 6,
-            fontSize: 12, outline: 'none',
-          }}
-        >
+    <div style={{ background: '#F0FFF4', border: '1px solid #D1FAE5', borderRadius: 8, padding: '12px', marginTop: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#065F46', marginBottom: 6 }}>🔗 イベントに適用する内容：</div>
+      {applicableTypes.map(t => (
+        <div key={t} style={{ fontSize: 12, color: '#374151', marginBottom: 4 }}>
+          <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700, marginRight: 6 }}>{REPORT_TYPE_LABELS[t]}</span>
+          <strong>{sv[t]}</strong>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+        <select value={selectedEventId} onChange={e => setSelectedEventId(e.target.value)} style={{ flex: 1, minWidth: 200, padding: '6px 10px', border: '1.5px solid #D1FAE5', borderRadius: 6, fontSize: 12, outline: 'none' }}>
           <option value="">対象イベントを選択...</option>
-          {filteredEvents.map(ev => (
-            <option key={ev.id} value={ev.id}>
-              {ev.schools.name} / {ev.event_date} {ev.event_name}
-            </option>
-          ))}
-          {filteredEvents.length === 0 && verifiedEvents.map(ev => (
-            <option key={ev.id} value={ev.id}>
-              {ev.schools.name} / {ev.event_date} {ev.event_name}
-            </option>
+          {(filteredEvents.length > 0 ? filteredEvents : verifiedEvents).map(ev => (
+            <option key={ev.id} value={ev.id}>{ev.schools.name} / {ev.event_date} {ev.event_name}</option>
           ))}
         </select>
-        <button
-          onClick={handleApply}
-          disabled={!selectedEventId || applying}
-          style={{
-            background: selectedEventId ? '#16A34A' : '#9CA3AF',
-            color: 'white', border: 'none', borderRadius: 6,
-            padding: '6px 14px', fontSize: 12, fontWeight: 700,
-            cursor: selectedEventId ? 'pointer' : 'not-allowed',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <button onClick={handleApply} disabled={!selectedEventId || applying} style={{ background: selectedEventId ? '#16A34A' : '#9CA3AF', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: selectedEventId ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
           {applying ? '適用中...' : '✅ 適用して対応済にする'}
         </button>
-        <button onClick={onClose} style={{
-          background: '#F3F4F6', color: '#555', border: 'none',
-          borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer',
-        }}>✕</button>
+        <button onClick={onClose} style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+}
+
+// 掲載漏れ登録パネル
+interface MissingPanelProps {
+  report: Report
+  schools: School[]
+  onRegister: (reportId: string, data: Record<string, any>) => Promise<void>
+  onClose: () => void
+}
+
+function MissingPanel({ report, schools, onRegister, onClose }: MissingPanelProps) {
+  const sv = report.suggested_values ?? {}
+  const schoolName = report.school_name_text || report.schools?.name || ''
+  const school = schools.find(s => s.name === schoolName || s.id === report.school_id)
+
+  const [form, setForm] = useState({
+    school_name: schoolName,
+    event_name: 'オープンスクール',
+    event_date: '',
+    event_time: '',
+    requires_application: '' as '' | 'true' | 'false',
+    application_url: sv['url'] ?? sv['missing'] ?? '',
+    application_deadline: sv['deadline'] ?? '',
+    notes: sv['missing'] ?? '',
+  })
+  const [registering, setRegistering] = useState(false)
+  const [err, setErr] = useState('')
+
+  const handleRegister = async () => {
+    setErr('')
+    if (!form.school_name || !form.event_name || !form.event_date) {
+      setErr('学校名・イベント名・開催日は必須です')
+      return
+    }
+    const targetSchool = schools.find(s => s.name === form.school_name)
+    if (!targetSchool) {
+      setErr('学校が見つかりません')
+      return
+    }
+    setRegistering(true)
+    await onRegister(report.id, {
+      school_id: targetSchool.id,
+      event_name: form.event_name,
+      event_date: form.event_date,
+      event_time: form.event_time || null,
+      requires_application: form.requires_application === 'true' ? true : form.requires_application === 'false' ? false : null,
+      application_url: form.application_url || null,
+      application_deadline: form.application_deadline || null,
+      notes: form.notes || null,
+      source_url: targetSchool.official_url,
+      is_verified: true,
+    })
+    setRegistering(false)
+    onClose()
+  }
+
+  const inputStyle = { width: '100%', padding: '6px 10px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' as const }
+  const labelStyle = { fontSize: 11, color: '#555', display: 'block' as const, marginBottom: 3 }
+
+  return (
+    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '12px', marginTop: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#1e40af', marginBottom: 10 }}>➕ この指摘からイベントを登録する</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div>
+          <label style={labelStyle}>学校名 *</label>
+          <select value={form.school_name} onChange={e => setForm(f => ({ ...f, school_name: e.target.value }))} style={inputStyle}>
+            <option value="">選択してください</option>
+            {schools.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </select>
+        </div>
+        {[
+          { label: 'イベント名 *', key: 'event_name', type: 'text' },
+          { label: '開催日 *', key: 'event_date', type: 'date' },
+          { label: '時間', key: 'event_time', type: 'text' },
+          { label: '申込締切日', key: 'application_deadline', type: 'date' },
+          { label: '申込URL', key: 'application_url', type: 'text' },
+          { label: '備考', key: 'notes', type: 'text' },
+        ].map(({ label, key, type }) => (
+          <div key={key}>
+            <label style={labelStyle}>{label}</label>
+            <input type={type} value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={inputStyle} />
+          </div>
+        ))}
+        <div>
+          <label style={labelStyle}>要申込</label>
+          <select value={form.requires_application} onChange={e => setForm(f => ({ ...f, requires_application: e.target.value as any }))} style={inputStyle}>
+            <option value="">不明</option>
+            <option value="true">要申込</option>
+            <option value="false">申込不要</option>
+          </select>
+        </div>
+        {err && <div style={{ color: '#DC2626', fontSize: 11 }}>⚠️ {err}</div>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleRegister} disabled={registering} style={{ background: registering ? '#9CA3AF' : '#1a2742', color: 'white', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12, fontWeight: 700, cursor: registering ? 'not-allowed' : 'pointer' }}>
+            {registering ? '登録中...' : '✅ 登録してサイトに掲載'}
+          </button>
+          <button onClick={onClose} style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>キャンセル</button>
+        </div>
       </div>
     </div>
   )
@@ -309,6 +342,7 @@ export default function AdminPage() {
   const [savingSchool, setSavingSchool] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [applyingReportId, setApplyingReportId] = useState<string | null>(null)
+  const [missingReportId, setMissingReportId] = useState<string | null>(null)
   const router = useRouter()
 
   const fetchEvents = useCallback(async () => {
@@ -327,10 +361,7 @@ export default function AdminPage() {
   const fetchSchools = useCallback(async () => {
     const res = await fetch('/api/admin/schools', { cache: 'no-store' })
     const json = await res.json()
-    const sorted = (json.schools ?? []).sort((a: School, b: School) =>
-      a.name.localeCompare(b.name, 'ja')
-    )
-    setSchools([...sorted])
+    setSchools([...(json.schools ?? []).sort((a: School, b: School) => a.name.localeCompare(b.name, 'ja'))])
   }, [])
 
   const fetchReports = useCallback(async () => {
@@ -346,33 +377,19 @@ export default function AdminPage() {
   }, [fetchEvents, fetchSchools, fetchReports])
 
   const handleApprove = useCallback(async (id: string) => {
-    await fetch('/api/admin/events', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: 'approve' }),
-    })
+    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'approve' }) })
     fetchEvents()
   }, [fetchEvents])
 
   const handleApproveAll = async (schoolName: string, schoolEvents: Event[]) => {
     setApprovingSchool(schoolName)
-    await Promise.all(schoolEvents.map(ev =>
-      fetch('/api/admin/events', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: ev.id, action: 'approve' }),
-      })
-    ))
+    await Promise.all(schoolEvents.map(ev => fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id, action: 'approve' }) })))
     setApprovingSchool(null)
     await fetchEvents()
   }
 
   const handleUpdate = useCallback(async (id: string) => {
-    await fetch('/api/admin/events', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: 'update', data: editData }),
-    })
+    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'update', data: editData }) })
     setEditingId(null)
     setEditData({})
     await fetchEvents()
@@ -380,50 +397,29 @@ export default function AdminPage() {
 
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm('このイベントを削除しますか？')) return
-    await fetch('/api/admin/events', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
+    await fetch('/api/admin/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     fetchEvents()
   }, [fetchEvents])
 
   const handleAdd = async () => {
     setAddError('')
-    if (!addForm.school_name || !addForm.event_name || !addForm.event_date) {
-      setAddError('学校名・イベント名・開催日は必須です')
-      return
-    }
+    if (!addForm.school_name || !addForm.event_name || !addForm.event_date) { setAddError('学校名・イベント名・開催日は必須です'); return }
     const school = schools.find(s => s.name === addForm.school_name)
-    if (!school) {
-      setAddError(`「${addForm.school_name}」は登録されていない学校名です`)
-      return
-    }
+    if (!school) { setAddError(`「${addForm.school_name}」は登録されていない学校名です`); return }
     setAdding(true)
     const res = await fetch('/api/admin/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        school_id: school.id,
-        event_name: addForm.event_name,
-        event_date: addForm.event_date,
+        school_id: school.id, event_name: addForm.event_name, event_date: addForm.event_date,
         event_time: addForm.event_time || null,
         requires_application: addForm.requires_application === 'true' ? true : addForm.requires_application === 'false' ? false : null,
         capacity: addForm.capacity ? Number(addForm.capacity) : null,
-        notes: addForm.notes || null,
-        application_url: addForm.application_url || null,
+        notes: addForm.notes || null, application_url: addForm.application_url || null,
         application_deadline: addForm.application_deadline || null,
-        source_url: school.official_url,
-        is_verified: true,
+        source_url: school.official_url, is_verified: true,
       }),
     })
-    if (!res.ok) {
-      setAddError('登録に失敗しました')
-    } else {
-      setAddForm(EMPTY_FORM)
-      setShowAddForm(false)
-      await fetchEvents()
-    }
+    if (!res.ok) { setAddError('登録に失敗しました') } else { setAddForm(EMPTY_FORM); setShowAddForm(false); await fetchEvents() }
     setAdding(false)
   }
 
@@ -434,26 +430,11 @@ export default function AdminPage() {
 
   const startEdit = useCallback((ev: Event) => {
     setEditingId(ev.id)
-    setEditData({
-      event_name: ev.event_name,
-      event_date: ev.event_date,
-      event_time: ev.event_time ?? '',
-      requires_application: ev.requires_application,
-      capacity: ev.capacity,
-      notes: ev.notes ?? '',
-      application_url: ev.application_url ?? '',
-      application_deadline: ev.application_deadline ?? '',
-    })
+    setEditData({ event_name: ev.event_name, event_date: ev.event_date, event_time: ev.event_time ?? '', requires_application: ev.requires_application, capacity: ev.capacity, notes: ev.notes ?? '', application_url: ev.application_url ?? '', application_deadline: ev.application_deadline ?? '' })
   }, [])
 
-  const cancelEdit = useCallback(() => {
-    setEditingId(null)
-    setEditData({})
-  }, [])
-
-  const handleEditDataChange = useCallback((data: Partial<Event>) => {
-    setEditData(data)
-  }, [])
+  const cancelEdit = useCallback(() => { setEditingId(null); setEditData({}) }, [])
+  const handleEditDataChange = useCallback((data: Partial<Event>) => { setEditData(data) }, [])
 
   const startEditSchool = (school: School) => {
     setEditingSchoolId(school.id)
@@ -467,70 +448,43 @@ export default function AdminPage() {
 
   const handleGeocode = async () => {
     if (!editingAddress) return
-    setGeocoding(true)
-    setGeocodeMsg('')
+    setGeocoding(true); setGeocodeMsg('')
     try {
-      const res = await fetch(
-        `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(editingAddress)}`
-      )
+      const res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(editingAddress)}`)
       const data = await res.json()
       if (data && data.length > 0) {
         const [lng, lat] = data[0].geometry.coordinates
-        setEditingLat(String(lat))
-        setEditingLng(String(lng))
+        setEditingLat(String(lat)); setEditingLng(String(lng))
         setGeocodeMsg(`✓ 取得成功：${data[0].properties.title}`)
-      } else {
-        setGeocodeMsg('⚠️ 住所が見つかりませんでした')
-      }
-    } catch {
-      setGeocodeMsg('⚠️ 座標取得に失敗しました')
-    }
+      } else { setGeocodeMsg('⚠️ 住所が見つかりませんでした') }
+    } catch { setGeocodeMsg('⚠️ 座標取得に失敗しました') }
     setGeocoding(false)
   }
 
   const handleSaveSchool = async (schoolId: string) => {
     setSavingSchool(true)
     const urls = editingCrawlUrls.split('\n').map(u => u.trim()).filter(u => u.length > 0)
-    await fetch('/api/admin/schools', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: schoolId, crawl_urls: urls, crawl_enabled: editingCrawlEnabled,
-        address: editingAddress || null,
-        lat: editingLat ? Number(editingLat) : null,
-        lng: editingLng ? Number(editingLng) : null,
-      }),
-    })
-    await fetchSchools()
-    setEditingSchoolId(null)
-    setSavingSchool(false)
+    await fetch('/api/admin/schools', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: schoolId, crawl_urls: urls, crawl_enabled: editingCrawlEnabled, address: editingAddress || null, lat: editingLat ? Number(editingLat) : null, lng: editingLng ? Number(editingLng) : null }) })
+    await fetchSchools(); setEditingSchoolId(null); setSavingSchool(false)
   }
 
   const handleResolve = async (id: string) => {
     setResolvingId(id)
-    await fetch('/api/reports', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: 'resolved' }),
-    })
-    setResolvingId(null)
-    await fetchReports()
+    await fetch('/api/reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: 'resolved' }) })
+    setResolvingId(null); await fetchReports()
   }
 
-  // 指摘をイベントに適用して対応済にする
-  const handleApplyToEvent = async (reportId: string, eventId: string, field: string, value: string) => {
-    // イベントを更新
-    await fetch('/api/admin/events', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: eventId, action: 'update', data: { [field]: value } }),
-    })
-    // 指摘を対応済にする
-    await fetch('/api/reports', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: reportId, status: 'resolved' }),
-    })
+  // 指摘をイベントに適用（複数フィールド対応）
+  const handleApplyToEvent = async (reportId: string, eventId: string, updates: Record<string, string>) => {
+    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: eventId, action: 'update', data: updates }) })
+    await fetch('/api/reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: reportId, status: 'resolved' }) })
+    await Promise.all([fetchEvents(), fetchReports()])
+  }
+
+  // 掲載漏れからイベント登録
+  const handleRegisterFromReport = async (reportId: string, data: Record<string, any>) => {
+    await fetch('/api/admin/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    await fetch('/api/reports', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: reportId, status: 'resolved' }) })
     await Promise.all([fetchEvents(), fetchReports()])
   }
 
@@ -550,28 +504,22 @@ export default function AdminPage() {
       return acc
     }, {} as Record<string, Event[]>)
 
-  const filteredSchools = schools.filter(s =>
-    s.name.includes(schoolSearch) ||
-    (s.crawl_urls ?? []).some(u => u.includes(schoolSearch))
-  )
-
+  const filteredSchools = schools.filter(s => s.name.includes(schoolSearch) || (s.crawl_urls ?? []).some(u => u.includes(schoolSearch)))
   const errorSchools = schools.filter(s => s.crawl_error_count > 0)
   const openReports = reports.filter(r => r.status === 'open')
 
-  const reportTypeLabel = (type: string) => {
-    const map: Record<string, string> = {
-      date: '📅 日程', time: '🕐 時間', url: '🔗 URL',
-      deadline: '⏰ 締切', missing: '➕ 掲載漏れ', other: '📝 その他',
-    }
-    return map[type] ?? type
-  }
-
-  // イベントに適用できる指摘タイプ
-  const isApplicableType = (type: string) =>
-    ['url', 'deadline', 'time'].includes(type)
-
   const inputStyle = { flex: 1, padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13, outline: 'none' }
   const labelStyle = { fontSize: 11, color: '#888', minWidth: 80 }
+
+  // 指摘カードのボタン表示判定
+  const hasApplicableTypes = (r: Report) => {
+    const sv = r.suggested_values ?? {}
+    return Object.keys(sv).some(t => TYPE_TO_FIELD[t])
+  }
+  const hasMissing = (r: Report) => {
+    const types = r.report_type.split(',')
+    return types.includes('missing')
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FA' }}>
@@ -589,11 +537,7 @@ export default function AdminPage() {
           { key: 'schools', label: `🏫 学校・クロール管理${errorSchools.length > 0 ? ` ⚠️${errorSchools.length}件エラー` : ''}` },
           { key: 'reports', label: `📣 指摘一覧${openReports.length > 0 ? ` 🔴${openReports.length}件` : ''}` },
         ] as const).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '12px 20px', border: 'none', background: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            color: tab === t.key ? '#1a2742' : '#888',
-            borderBottom: tab === t.key ? '2px solid #1a2742' : '2px solid transparent', marginBottom: -2,
-          }}>{t.label}</button>
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '12px 20px', border: 'none', background: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: tab === t.key ? '#1a2742' : '#888', borderBottom: tab === t.key ? '2px solid #1a2742' : '2px solid transparent', marginBottom: -2 }}>{t.label}</button>
         ))}
       </div>
 
@@ -631,9 +575,7 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <label style={labelStyle}>要申込</label>
                       <select value={addForm.requires_application} onChange={e => setAddForm(f => ({ ...f, requires_application: e.target.value as any }))} style={{ padding: '5px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 13 }}>
-                        <option value="">不明</option>
-                        <option value="true">要申込</option>
-                        <option value="false">申込不要</option>
+                        <option value="">不明</option><option value="true">要申込</option><option value="false">申込不要</option>
                       </select>
                     </div>
                     {addError && <div style={{ color: '#DC2626', fontSize: 12 }}>⚠️ {addError}</div>}
@@ -651,35 +593,32 @@ export default function AdminPage() {
               <button onClick={fetchEvents} style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#555' }}>🔄 更新</button>
             </div>
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>読み込み中...</div>
-            ) : events.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', background: 'white', borderRadius: 12, color: '#888', fontSize: 14, marginBottom: 20 }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>未確認のイベントはありません。
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
-                {Object.entries(groupedEvents).map(([schoolName, schoolEvents]) => (
-                  <div key={schoolName} style={{ background: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 16px', background: '#F8FAFC', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div>
-                        <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>🏫 {schoolName}</span>
-                        <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{schoolEvents.length}件</span>
-                        <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
+            {loading ? <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>読み込み中...</div>
+              : events.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', background: 'white', borderRadius: 12, color: '#888', fontSize: 14, marginBottom: 20 }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>未確認のイベントはありません。
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+                  {Object.entries(groupedEvents).map(([schoolName, schoolEvents]) => (
+                    <div key={schoolName} style={{ background: 'white', borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', background: '#F8FAFC', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>🏫 {schoolName}</span>
+                          <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{schoolEvents.length}件</span>
+                          <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
+                        </div>
+                        <button onClick={() => handleApproveAll(schoolName, schoolEvents)} disabled={approvingSchool === schoolName} style={{ background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                          {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
+                        </button>
                       </div>
-                      <button onClick={() => handleApproveAll(schoolName, schoolEvents)} disabled={approvingSchool === schoolName} style={{ background: approvingSchool === schoolName ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: approvingSchool === schoolName ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                        {approvingSchool === schoolName ? '承認中...' : `✅ ${schoolEvents.length}件を一括承認`}
-                      </button>
+                      <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {schoolEvents.map(ev => <EventCard key={ev.id} ev={ev} isVerified={false} editingId={editingId} editData={editData} onStartEdit={startEdit} onCancelEdit={cancelEdit} onUpdate={handleUpdate} onApprove={handleApprove} onDelete={handleDelete} onEditDataChange={handleEditDataChange} />)}
+                      </div>
                     </div>
-                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {schoolEvents.map(ev => (
-                        <EventCard key={ev.id} ev={ev} isVerified={false} editingId={editingId} editData={editData} onStartEdit={startEdit} onCancelEdit={cancelEdit} onUpdate={handleUpdate} onApprove={handleApprove} onDelete={handleDelete} onEditDataChange={handleEditDataChange} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
             <div style={{ background: 'white', borderRadius: 10, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5', overflow: 'hidden' }}>
               <div onClick={() => setShowVerified(v => !v)} style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: showVerified ? '#F0FFF4' : 'white' }}>
@@ -701,9 +640,7 @@ export default function AdminPage() {
                             <a href={schoolEvents[0].schools.official_url} target="_blank" rel="noopener noreferrer" style={{ color: '#16A34A', fontSize: 11, marginLeft: 8 }}>公式サイト →</a>
                           </div>
                           <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {schoolEvents.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => (
-                              <EventCard key={ev.id} ev={ev} isVerified={true} editingId={editingId} editData={editData} onStartEdit={startEdit} onCancelEdit={cancelEdit} onUpdate={handleUpdate} onApprove={handleApprove} onDelete={handleDelete} onEditDataChange={handleEditDataChange} />
-                            ))}
+                            {schoolEvents.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => <EventCard key={ev.id} ev={ev} isVerified={true} editingId={editingId} editData={editData} onStartEdit={startEdit} onCancelEdit={cancelEdit} onUpdate={handleUpdate} onApprove={handleApprove} onDelete={handleDelete} onEditDataChange={handleEditDataChange} />)}
                           </div>
                         </div>
                       ))}
@@ -721,11 +658,7 @@ export default function AdminPage() {
             {errorSchools.length > 0 && (
               <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 14, marginBottom: 8 }}>⚠️ クロールエラーが発生している学校（{errorSchools.length}校）</div>
-                {errorSchools.map(s => (
-                  <div key={s.id} style={{ fontSize: 12, color: '#7F1D1D', marginBottom: 4 }}>
-                    <strong>{s.name}</strong>（連続{s.crawl_error_count}回）：{s.crawl_error}
-                  </div>
-                ))}
+                {errorSchools.map(s => <div key={s.id} style={{ fontSize: 12, color: '#7F1D1D', marginBottom: 4 }}><strong>{s.name}</strong>（連続{s.crawl_error_count}回）：{s.crawl_error}</div>)}
               </div>
             )}
             <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
@@ -758,13 +691,12 @@ export default function AdminPage() {
                           </div>
                           {geocodeMsg && <div style={{ fontSize: 11, marginBottom: 8, color: geocodeMsg.startsWith('✓') ? '#16A34A' : '#DC2626' }}>{geocodeMsg}</div>}
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <div style={{ flex: 1 }}><div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>緯度（lat）</div><input type="number" step="0.0001" placeholder="34.xxxx" value={editingLat} onChange={e => setEditingLat(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} /></div>
-                            <div style={{ flex: 1 }}><div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>経度（lng）</div><input type="number" step="0.0001" placeholder="132.xxxx" value={editingLng} onChange={e => setEditingLng(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} /></div>
+                            <div style={{ flex: 1 }}><div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>緯度（lat）</div><input type="number" step="0.0001" value={editingLat} onChange={e => setEditingLat(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} /></div>
+                            <div style={{ flex: 1 }}><div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>経度（lng）</div><input type="number" step="0.0001" value={editingLng} onChange={e => setEditingLng(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #E5E7EB', borderRadius: 6, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} /></div>
                           </div>
                         </div>
                         <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '12px', border: '1px solid #E5E7EB' }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: '#1a2742', marginBottom: 8 }}>🔗 クロールURL</div>
-                          <label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 4 }}>1行に1URL</label>
                           <textarea value={editingCrawlUrls} onChange={e => setEditingCrawlUrls(e.target.value)} rows={3} style={{ width: '100%', padding: '8px', border: '1.5px solid #3B82F6', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }} />
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                             <label style={{ fontSize: 12, color: '#555' }}>クロール有効</label>
@@ -777,9 +709,7 @@ export default function AdminPage() {
                         </div>
                       </div>
                     ) : (
-                      <div>
-                        {(school.crawl_urls ?? []).length === 0 ? <div style={{ fontSize: 11, color: '#EF4444' }}>⚠️ クロールURL未設定</div> : (school.crawl_urls ?? []).map((url, i) => <div key={i} style={{ fontSize: 11, color: '#2563EB', wordBreak: 'break-all' }}>🔗 {url}</div>)}
-                      </div>
+                      <div>{(school.crawl_urls ?? []).length === 0 ? <div style={{ fontSize: 11, color: '#EF4444' }}>⚠️ クロールURL未設定</div> : (school.crawl_urls ?? []).map((url, i) => <div key={i} style={{ fontSize: 11, color: '#2563EB', wordBreak: 'break-all' }}>🔗 {url}</div>)}</div>
                     )}
                   </div>
                 </div>
@@ -808,7 +738,7 @@ export default function AdminPage() {
                 {reports.map(r => (
                   <div key={r.id} style={{ background: 'white', borderRadius: 10, border: `1px solid ${r.status === 'open' ? '#FECACA' : '#D1FAE5'}`, boxShadow: '0 1px 4px rgba(0,0,0,.05)', overflow: 'hidden' }}>
                     <div style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 700, color: '#1a2742', fontSize: 14 }}>{r.school_name_text || r.schools?.name || '学校未指定'}</span>
                           <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700, background: r.status === 'open' ? '#FEE2E2' : '#D1FAE5', color: r.status === 'open' ? '#DC2626' : '#065F46' }}>
@@ -817,15 +747,12 @@ export default function AdminPage() {
                           <span style={{ fontSize: 11, color: '#6B7280' }}>{new Date(r.created_at).toLocaleString('ja-JP')}</span>
                         </div>
                         {r.status === 'open' && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            {/* イベントに適用できるタイプかつsuggestedValueがある場合のみ表示 */}
-                            {isApplicableType(r.report_type) && r.suggested_value && (
-                              <button
-                                onClick={() => setApplyingReportId(applyingReportId === r.id ? null : r.id)}
-                                style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                              >
-                                🔗 イベントに適用
-                              </button>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {hasApplicableTypes(r) && (
+                              <button onClick={() => { setApplyingReportId(applyingReportId === r.id ? null : r.id); setMissingReportId(null) }} style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>🔗 イベントに適用</button>
+                            )}
+                            {hasMissing(r) && (
+                              <button onClick={() => { setMissingReportId(missingReportId === r.id ? null : r.id); setApplyingReportId(null) }} style={{ background: '#EFF6FF', color: '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>➕ イベントを登録</button>
                             )}
                             <button onClick={() => handleResolve(r.id)} disabled={resolvingId === r.id} style={{ background: resolvingId === r.id ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: resolvingId === r.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                               {resolvingId === r.id ? '処理中...' : '✅ 対応済にする'}
@@ -834,26 +761,32 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
-                        <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700, marginRight: 8 }}>{reportTypeLabel(r.report_type)}</span>
+                      {/* 種別タグ */}
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {r.report_type.split(',').map(t => (
+                          <span key={t} style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{REPORT_TYPE_LABELS[t] ?? t}</span>
+                        ))}
                       </div>
 
-                      <div style={{ fontSize: 13, color: '#374151', marginBottom: r.suggested_value ? 8 : 0 }}>{r.description}</div>
-
-                      {r.suggested_value && (
-                        <div style={{ background: '#F0FFF4', border: '1px solid #D1FAE5', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#065F46' }}>
-                          💡 正しい値：<strong>{r.suggested_value}</strong>
+                      {/* 正しい値（種別ごと） */}
+                      {r.suggested_values && Object.keys(r.suggested_values).length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                          {Object.entries(r.suggested_values).map(([type, val]) => (
+                            <div key={type} style={{ background: '#F0FFF4', border: '1px solid #D1FAE5', borderRadius: 6, padding: '5px 10px', fontSize: 12, color: '#065F46' }}>
+                              <span style={{ fontWeight: 700 }}>{REPORT_TYPE_LABELS[type] ?? type}：</span>{val}
+                            </div>
+                          ))}
                         </div>
                       )}
 
-                      {/* イベント適用パネル */}
+                      {/* 適用パネル */}
                       {applyingReportId === r.id && (
-                        <ApplyPanel
-                          report={r}
-                          verifiedEvents={verifiedEvents}
-                          onApply={handleApplyToEvent}
-                          onClose={() => setApplyingReportId(null)}
-                        />
+                        <ApplyPanel report={r} verifiedEvents={verifiedEvents} onApply={handleApplyToEvent} onClose={() => setApplyingReportId(null)} />
+                      )}
+
+                      {/* 掲載漏れ登録パネル */}
+                      {missingReportId === r.id && (
+                        <MissingPanel report={r} schools={schools} onRegister={handleRegisterFromReport} onClose={() => setMissingReportId(null)} />
                       )}
 
                       <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>投稿者：{r.reporter_name || ''} {r.reporter_email}</div>
