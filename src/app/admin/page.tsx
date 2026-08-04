@@ -58,7 +58,6 @@ const EMPTY_FORM = {
   application_deadline: '',
 }
 
-// EventCardを外部コンポーネントとして定義（再レンダリング問題を防ぐ）
 interface EventCardProps {
   ev: Event
   isVerified: boolean
@@ -232,7 +231,7 @@ export default function AdminPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const router = useRouter()
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true)
     const [unverifiedRes, verifiedRes] = await Promise.all([
       fetch('/api/admin/events'),
@@ -243,28 +242,28 @@ export default function AdminPage() {
     setEvents(unverifiedJson.events ?? [])
     setVerifiedEvents(verifiedJson.events ?? [])
     setLoading(false)
-  }
+  }, [])
 
-  const fetchSchools = async () => {
+  const fetchSchools = useCallback(async () => {
     const res = await fetch('/api/admin/schools', { cache: 'no-store' })
     const json = await res.json()
     const sorted = (json.schools ?? []).sort((a: School, b: School) =>
       a.name.localeCompare(b.name, 'ja')
     )
     setSchools([...sorted])
-  }
+  }, [])
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     const res = await fetch('/api/reports', { cache: 'no-store' })
     const json = await res.json()
     setReports(json.reports ?? [])
-  }
+  }, [])
 
   useEffect(() => {
     fetchEvents()
     fetchSchools()
     fetchReports()
-  }, [])
+  }, [fetchEvents, fetchSchools, fetchReports])
 
   const handleApprove = useCallback(async (id: string) => {
     await fetch('/api/admin/events', {
@@ -273,7 +272,7 @@ export default function AdminPage() {
       body: JSON.stringify({ id, action: 'approve' }),
     })
     fetchEvents()
-  }, [])
+  }, [fetchEvents])
 
   const handleApproveAll = async (schoolName: string, schoolEvents: Event[]) => {
     setApprovingSchool(schoolName)
@@ -297,7 +296,7 @@ export default function AdminPage() {
     setEditingId(null)
     setEditData({})
     await fetchEvents()
-  }, [editData])
+  }, [editData, fetchEvents])
 
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm('このイベントを削除しますか？')) return
@@ -307,7 +306,7 @@ export default function AdminPage() {
       body: JSON.stringify({ id }),
     })
     fetchEvents()
-  }, [])
+  }, [fetchEvents])
 
   const handleAdd = async () => {
     setAddError('')
@@ -370,6 +369,10 @@ export default function AdminPage() {
   const cancelEdit = useCallback(() => {
     setEditingId(null)
     setEditData({})
+  }, [])
+
+  const handleEditDataChange = useCallback((data: Partial<Event>) => {
+    setEditData(data)
   }, [])
 
   const startEditSchool = (school: School) => {
@@ -480,7 +483,6 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F7FA' }}>
-      {/* ヘッダー */}
       <div style={{
         background: '#1a2742', color: 'white',
         padding: '14px 24px', display: 'flex',
@@ -499,7 +501,6 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* タブ */}
       <div style={{ background: 'white', borderBottom: '2px solid #E5E7EB', display: 'flex' }}>
         {([
           { key: 'events', label: `📋 イベント管理` },
@@ -524,10 +525,8 @@ export default function AdminPage() {
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* ===== イベント管理タブ ===== */}
         {tab === 'events' && (
           <>
-            {/* 手動登録フォーム */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
               boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB',
@@ -611,7 +610,6 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* 未確認イベント一覧 */}
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 14, color: '#555' }}>
                 未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件
@@ -679,7 +677,7 @@ export default function AdminPage() {
                           onUpdate={handleUpdate}
                           onApprove={handleApprove}
                           onDelete={handleDelete}
-                          onEditDataChange={setEditData}
+                          onEditDataChange={handleEditDataChange}
                         />
                       ))}
                     </div>
@@ -688,7 +686,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 掲載済みイベント */}
             <div style={{
               background: 'white', borderRadius: 10, marginBottom: 20,
               boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #D1FAE5', overflow: 'hidden',
@@ -737,7 +734,7 @@ export default function AdminPage() {
                                   onUpdate={handleUpdate}
                                   onApprove={handleApprove}
                                   onDelete={handleDelete}
-                                  onEditDataChange={setEditData}
+                                  onEditDataChange={handleEditDataChange}
                                 />
                               ))}
                             </div>
@@ -751,7 +748,6 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* ===== 学校・クロール管理タブ ===== */}
         {tab === 'schools' && (
           <>
             {errorSchools.length > 0 && (
@@ -887,7 +883,6 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* ===== 指摘一覧タブ ===== */}
         {tab === 'reports' && (
           <>
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
