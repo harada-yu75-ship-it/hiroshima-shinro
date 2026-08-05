@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 
 interface Event {
   id: string
@@ -343,7 +342,6 @@ export default function AdminPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [applyingReportId, setApplyingReportId] = useState<string | null>(null)
   const [missingReportId, setMissingReportId] = useState<string | null>(null)
-  const router = useRouter()
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
@@ -421,11 +419,6 @@ export default function AdminPage() {
     })
     if (!res.ok) { setAddError('登録に失敗しました') } else { setAddForm(EMPTY_FORM); setShowAddForm(false); await fetchEvents() }
     setAdding(false)
-  }
-
-  const handleLogout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST' })
-    router.push('/admin/login')
   }
 
   const startEdit = useCallback((ev: Event) => {
@@ -528,7 +521,7 @@ export default function AdminPage() {
           <div style={{ fontSize: 16, fontWeight: 900 }}>📋 管理画面</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)' }}>広島市進路情報サイト</div>
         </div>
-        <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: 'white', padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>ログアウト</button>
+        <a href="/" style={{ background: 'rgba(255,255,255,.15)', color: 'white', textDecoration: 'none', padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>← 情報サイトへ</a>
       </div>
 
       <div style={{ background: 'white', borderBottom: '2px solid #E5E7EB', display: 'flex' }}>
