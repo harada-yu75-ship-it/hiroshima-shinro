@@ -767,7 +767,12 @@ export default function AdminPage() {
                           <span key={t} style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{REPORT_TYPE_LABELS[t] ?? t}</span>
                         ))}
                       </div>
-
+{/* 指摘内容 */}
+                      {r.description && (
+                        <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                          {r.description}
+                        </div>
+                      )}
                       {/* 正しい値（種別ごと） */}
                       {r.suggested_values && Object.keys(r.suggested_values).length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
