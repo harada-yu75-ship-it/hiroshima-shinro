@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
   const { error } = await supabase
     .from('reports')
-    .insert([{
+     .insert([({
       school_id: school_id || null,
       school_name_text,
       report_type,
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       reporter_email,
       reporter_name: reporter_name || null,
       status: 'open',
-    }])
+   }] as never)
   if (error) return NextResponse.json({ error }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
