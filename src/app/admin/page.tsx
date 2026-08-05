@@ -225,7 +225,6 @@ interface MissingPanelProps {
 function MissingPanel({ report, schools, onRegister, onClose }: MissingPanelProps) {
   const sv = report.suggested_values ?? {}
   const schoolName = report.school_name_text || report.schools?.name || ''
-  const school = schools.find(s => s.name === schoolName || s.id === report.school_id)
 
   const [form, setForm] = useState({
     school_name: schoolName,
@@ -557,7 +556,10 @@ export default function AdminPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <label style={labelStyle}>学校名 *</label>
-                      <input type="text" placeholder="学校名を入力（例：広島県立○○高等学校）" value={addForm.school_name} onChange={e => setAddForm(f => ({ ...f, school_name: e.target.value }))} style={inputStyle} />
+                      <select value={addForm.school_name} onChange={e => setAddForm(f => ({ ...f, school_name: e.target.value }))} style={inputStyle}>
+                        <option value="">選択してください（全{schools.length}校）</option>
+                        {schools.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
                     </div>
                     {[
                       { label: 'イベント名 *', key: 'event_name', type: 'text', placeholder: 'オープンスクール' },
@@ -768,12 +770,14 @@ export default function AdminPage() {
                           <span key={t} style={{ background: '#EFF6FF', color: '#2563EB', padding: '1px 6px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{REPORT_TYPE_LABELS[t] ?? t}</span>
                         ))}
                       </div>
-{/* 指摘内容 */}
+
+                      {/* 指摘内容 */}
                       {r.description && (
                         <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', marginBottom: 8 }}>
                           {r.description}
                         </div>
                       )}
+
                       {/* 正しい値（種別ごと） */}
                       {r.suggested_values && Object.keys(r.suggested_values).length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
