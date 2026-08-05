@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
+
 export async function PATCH(request: NextRequest) {
   const { id, action, data } = await request.json()
 
