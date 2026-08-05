@@ -66,6 +66,7 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
 
 // report_typeからeventフィールドへのマッピング
 const TYPE_TO_FIELD: Record<string, string> = {
+  date: 'event_date',
   url: 'application_url',
   deadline: 'application_deadline',
   time: 'event_time',
