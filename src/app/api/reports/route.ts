@@ -12,16 +12,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const {
+ const {
     school_id,
     school_name_text,
     report_type,
     description,
     suggested_value,
+    suggested_values,
     reporter_email,
     reporter_name,
   } = body
-
+  
   if (!report_type || !description || !reporter_email) {
     return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
   }
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
         report_type,
         description,
         suggested_value: suggested_value || null,
+        suggested_values: suggested_values || null,
         reporter_email,
         reporter_name: reporter_name || null,
         status: 'open',
