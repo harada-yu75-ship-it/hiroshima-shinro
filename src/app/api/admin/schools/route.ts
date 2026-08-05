@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
+
 export async function GET() {
   const { data, error } = await supabase
     .from('schools')
