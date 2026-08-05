@@ -29,7 +29,10 @@ export async function PATCH(request: NextRequest) {
   const { id, action, data } = await request.json()
 
   if (action === 'approve') {
-    const { error } = await supabase.rpc('approve_event', { event_id: id })
+    const { error } = await (supabase.rpc as never as (
+      fn: string,
+      args: Record<string, unknown>
+    ) => Promise<{ error: unknown }>)('approve_event', { event_id: id })
     if (error) {
       const { error: err2 } = await supabase
         .from('events')
