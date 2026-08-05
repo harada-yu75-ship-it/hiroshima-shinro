@@ -140,6 +140,11 @@ export default function ReportPage() {
           >
             続けて指摘する
           </button>
+          <div style={{ marginTop: 14 }}>
+            <a href="/" style={{ color: '#6B7280', fontSize: 13, textDecoration: 'underline' }}>
+              情報サイトに戻る
+            </a>
+          </div>
         </div>
       </div>
     )
@@ -148,9 +153,17 @@ export default function ReportPage() {
   return (
     <div style={{ minHeight: '100vh', background: LIGHTGRAY }}>
       <div style={{ background: NAVY, color: 'white', padding: '16px 24px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <div style={{ fontSize: 18, fontWeight: 900 }}>📣 情報の誤りを報告する</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>広島市進路情報サイト</div>
+        <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900 }}>📣 情報の誤りを報告する</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>広島市進路情報サイト</div>
+          </div>
+          <a
+            href="/"
+            style={{ flexShrink: 0, background: 'rgba(255,255,255,.15)', color: 'white', textDecoration: 'none', padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}
+          >
+            ← 情報サイトへ
+          </a>
         </div>
       </div>
 
@@ -203,31 +216,31 @@ export default function ReportPage() {
                         <span style={{ fontSize: 13, color: NAVY }}>{t.label}</span>
                       </label>
                       {/* 選択時に正しい値入力欄を表示 */}
-                     {isSelected && (
-  <div style={{ marginTop: 6, marginLeft: 12 }}>
-    <input
-      type="text"
-      placeholder={FIELD_PLACEHOLDER[t.value] ?? '正しい値を入力'}
-      value={suggestedValues[t.value] ?? ''}
-      onChange={e => setSuggestedValues(prev => ({ ...prev, [t.value]: e.target.value }))}
-      style={{
-        width: '100%', padding: '8px 12px',
-        border: `1.5px solid ${
-          t.value === 'other'
-            ? '#E5E7EB'
-            : suggestedValues[t.value]?.trim() ? '#16A34A' : '#FECACA'
-        }`,
-        borderRadius: 6, fontSize: 13, outline: 'none',
-        boxSizing: 'border-box',
-      }}
-    />
-    {t.value !== 'other' && !suggestedValues[t.value]?.trim() && (
-      <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>
-        正しい値を入力してください（必須）
-      </div>
-    )}
-  </div>
-)}
+                      {isSelected && (
+                        <div style={{ marginTop: 6, marginLeft: 12 }}>
+                          <input
+                            type="text"
+                            placeholder={FIELD_PLACEHOLDER[t.value] ?? '正しい値を入力'}
+                            value={suggestedValues[t.value] ?? ''}
+                            onChange={e => setSuggestedValues(prev => ({ ...prev, [t.value]: e.target.value }))}
+                            style={{
+                              width: '100%', padding: '8px 12px',
+                              border: `1.5px solid ${
+                                t.value === 'other'
+                                  ? '#E5E7EB'
+                                  : suggestedValues[t.value]?.trim() ? '#16A34A' : '#FECACA'
+                              }`,
+                              borderRadius: 6, fontSize: 13, outline: 'none',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                          {t.value !== 'other' && !suggestedValues[t.value]?.trim() && (
+                            <div style={{ fontSize: 10, color: '#DC2626', marginTop: 2 }}>
+                              正しい値を入力してください（必須）
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -279,6 +292,12 @@ export default function ReportPage() {
               {submitting ? '送信中...' : '📣 指摘を送信する'}
             </button>
           </div>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <a href="/" style={{ color: '#6B7280', fontSize: 13, textDecoration: 'underline' }}>
+            ← 情報サイトに戻る
+          </a>
         </div>
       </div>
     </div>
