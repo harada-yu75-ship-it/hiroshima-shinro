@@ -179,6 +179,16 @@ def extract_events_with_llm(text, school_name):
         return []
 
 
+# 差分比較の対象フィールド（左:クロール結果のキー / 右:DBのカラム名。今回は同名）
+UPDATE_COMPARE_FIELDS = [
+    "event_time",
+    "requires_application",
+    "application_deadline",
+    "application_url",
+    "notes",
+]
+
+
 def save_events(school_id, events, source_url):
     if not events:
         print("  保存するイベントなし")
@@ -189,21 +199,31 @@ def save_events(school_id, events, source_url):
         if not future:
             print("  今日以降のイベントなし")
             return
+
+        # 未確認イベントは毎回洗い替え（更新候補も含めて、この回のクロール結果で作り直す）
         supabase.table("events").delete().eq("school_id", school_id).eq("is_verified", False).execute()
 
-        # 承認済みイベントの日付を取得
-        verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
-        verified_dates = {v["event_date"] for v in (verified.data or [])}
+        # 承認済みイベントを日付ごとに取得（重複判定・差分比較・紐付けに使う）
+        verified_res = supabase.table("events").select(
+            "id, event_date, event_name, event_time, requires_application, "
+            "application_deadline, application_url, notes"
+        ).eq("school_id", school_id).eq("is_verified", True).execute()
+
+        verified_by_date = {}
+        for v in (verified_res.data or []):
+            verified_by_date.setdefault(v["event_date"], []).append(v)
 
         rows = []
+        update_count = 0
+
         for ev in future:
-            if ev.get("event_date") in verified_dates:
-                print(f"  スキップ（承認済み日付）: {ev.get('event_date')} {ev.get('event_name')}")
-                continue
-            rows.append({
+            ev_date = ev.get("event_date")
+            candidates = verified_by_date.get(ev_date, [])
+
+            base_row = {
                 "school_id": school_id,
                 "event_name": ev.get("event_name", ""),
-                "event_date": ev.get("event_date", ""),
+                "event_date": ev_date,
                 "event_time": ev.get("event_time"),
                 "requires_application": ev.get("requires_application"),
                 "capacity": ev.get("capacity"),
@@ -211,15 +231,39 @@ def save_events(school_id, events, source_url):
                 "application_deadline": ev.get("application_deadline"),
                 "application_url": ev.get("application_url"),
                 "source_url": source_url,
-                "is_verified": False
-            })
-        supabase.table("events").insert(rows).execute()
-        print("  " + str(len(rows)) + "件をSupabaseに保存")
+                "is_verified": False,
+                "update_target_id": None,
+            }
 
-        # 承認済みと同じ学校・日付の未確認イベントを削除
-        verified = supabase.table("events").select("event_date").eq("school_id", school_id).eq("is_verified", True).execute()
-        for v in (verified.data or []):
-            supabase.table("events").delete().eq("school_id", school_id).eq("event_date", v["event_date"]).eq("is_verified", False).execute()
+            if not candidates:
+                # 承認済みと重複しない → 通常の新規未確認イベント
+                rows.append(base_row)
+                continue
+
+            # 承認済みと同日 → 差分があれば「更新候補」として保存
+            # 同日に複数の承認済みイベントがある場合は先頭のものと比較する（限定的だが現状は十分）
+            matched = candidates[0]
+            has_diff = False
+            for field in UPDATE_COMPARE_FIELDS:
+                new_val = ev.get(field) or None
+                old_val = matched.get(field) or None
+                if new_val != old_val:
+                    has_diff = True
+                    break
+
+            if not has_diff:
+                print(f"  スキップ（承認済みと同一内容）: {ev_date} {ev.get('event_name')}")
+                continue
+
+            print(f"  更新候補として保存: {ev_date} {ev.get('event_name')}")
+            base_row["update_target_id"] = matched["id"]
+            rows.append(base_row)
+            update_count += 1
+
+        if rows:
+            supabase.table("events").insert(rows).execute()
+
+        print(f"  {len(rows)}件をSupabaseに保存（うち更新候補{update_count}件）")
 
         supabase.table("schools").update({
             "last_crawled_at": datetime.now(timezone.utc).isoformat()
