@@ -14,6 +14,8 @@ interface Event {
   application_deadline: string | null
   source_url: string
   schools: { name: string; official_url: string }
+  update_target_id?: string | null
+  update_target?: Event | null
 }
 
 interface School {
@@ -151,6 +153,81 @@ function EventCard({
               </>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 更新候補カード
+interface UpdateCandidateCardProps {
+  ev: Event
+  onApply: (id: string) => void
+  onIgnore: (id: string) => void
+  applying: boolean
+}
+
+const DIFF_FIELDS: { key: keyof Event; label: string }[] = [
+  { key: 'event_time', label: '時間' },
+  { key: 'requires_application', label: '要申込' },
+  { key: 'application_deadline', label: '申込締切' },
+  { key: 'application_url', label: '申込URL' },
+  { key: 'notes', label: '備考' },
+]
+
+function formatDiffValue(key: keyof Event, val: any): string {
+  if (val === null || val === undefined || val === '') return '（未設定）'
+  if (key === 'requires_application') return val === true ? '要申込' : val === false ? '申込不要' : '（未設定）'
+  return String(val)
+}
+
+function UpdateCandidateCard({ ev, onApply, onIgnore, applying }: UpdateCandidateCardProps) {
+  const target = ev.update_target
+  const diffs = DIFF_FIELDS.filter(f => {
+    const newVal = (ev as any)[f.key] ?? null
+    const oldVal = target ? ((target as any)[f.key] ?? null) : null
+    return (newVal || null) !== (oldVal || null)
+  })
+
+  return (
+    <div style={{ background: 'white', borderRadius: 8, border: '1px solid #FDE68A', overflow: 'hidden' }}>
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 2 }}>{ev.event_name}</div>
+        <div style={{ fontSize: 12, color: '#555', marginBottom: 10 }}>📅 {ev.event_date}</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+          {diffs.map(f => (
+            <div key={String(f.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
+              <span style={{ minWidth: 64, color: '#92400E', fontWeight: 700 }}>{f.label}</span>
+              <span style={{ color: '#9CA3AF', textDecoration: 'line-through' }}>
+                {formatDiffValue(f.key, target ? (target as any)[f.key] : null)}
+              </span>
+              <span style={{ color: '#9CA3AF' }}>→</span>
+              <span style={{ color: '#065F46', fontWeight: 700 }}>
+                {formatDiffValue(f.key, (ev as any)[f.key])}
+              </span>
+            </div>
+          ))}
+          {diffs.length === 0 && (
+            <div style={{ fontSize: 11, color: '#9CA3AF' }}>差分の内訳を取得できませんでした（適用は可能です）</div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => onApply(ev.id)}
+            disabled={applying}
+            style={{ background: applying ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: applying ? 'not-allowed' : 'pointer' }}
+          >
+            {applying ? '適用中...' : '✅ この内容で更新'}
+          </button>
+          <button
+            onClick={() => onIgnore(ev.id)}
+            disabled={applying}
+            style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: applying ? 'not-allowed' : 'pointer' }}
+          >
+            ✕ 無視する
+          </button>
         </div>
       </div>
     </div>
@@ -342,6 +419,8 @@ export default function AdminPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [applyingReportId, setApplyingReportId] = useState<string | null>(null)
   const [missingReportId, setMissingReportId] = useState<string | null>(null)
+  const [applyingUpdateId, setApplyingUpdateId] = useState<string | null>(null)
+  const [showUpdateCandidates, setShowUpdateCandidates] = useState(true)
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
@@ -395,6 +474,18 @@ export default function AdminPage() {
 
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm('このイベントを削除しますか？')) return
+    await fetch('/api/admin/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    fetchEvents()
+  }, [fetchEvents])
+
+  const handleApplyUpdate = useCallback(async (id: string) => {
+    setApplyingUpdateId(id)
+    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'apply_update' }) })
+    setApplyingUpdateId(null)
+    await fetchEvents()
+  }, [fetchEvents])
+
+  const handleIgnoreUpdate = useCallback(async (id: string) => {
     await fetch('/api/admin/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     fetchEvents()
   }, [fetchEvents])
@@ -481,7 +572,10 @@ export default function AdminPage() {
     await Promise.all([fetchEvents(), fetchReports()])
   }
 
-  const groupedEvents = events.reduce((acc, ev) => {
+  const updateCandidates = events.filter(ev => !!ev.update_target_id)
+  const plainEvents = events.filter(ev => !ev.update_target_id)
+
+  const groupedEvents = plainEvents.reduce((acc, ev) => {
     const name = ev.schools.name
     if (!acc[name]) acc[name] = []
     acc[name].push(ev)
@@ -526,7 +620,7 @@ export default function AdminPage() {
 
       <div style={{ background: 'white', borderBottom: '2px solid #E5E7EB', display: 'flex' }}>
         {([
-          { key: 'events', label: `📋 イベント管理` },
+          { key: 'events', label: `📋 イベント管理${updateCandidates.length > 0 ? ` 🔄${updateCandidates.length}件` : ''}` },
           { key: 'schools', label: `🏫 学校・クロール管理${errorSchools.length > 0 ? ` ⚠️${errorSchools.length}件エラー` : ''}` },
           { key: 'reports', label: `📣 指摘一覧${openReports.length > 0 ? ` 🔴${openReports.length}件` : ''}` },
         ] as const).map(t => (
@@ -584,13 +678,41 @@ export default function AdminPage() {
               )}
             </div>
 
+            {/* 更新候補セクション */}
+            {updateCandidates.length > 0 && (
+              <div style={{ background: 'white', borderRadius: 10, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #FDE68A', overflow: 'hidden' }}>
+                <div onClick={() => setShowUpdateCandidates(v => !v)} style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: showUpdateCandidates ? '#FFFBEB' : 'white' }}>
+                  <div style={{ fontWeight: 700, color: '#92400E', fontSize: 14 }}>🔄 更新候補（{updateCandidates.length}件）</div>
+                  <span style={{ color: '#888', fontSize: 12 }}>{showUpdateCandidates ? '▲ 閉じる' : '▼ 開く'}</span>
+                </div>
+                {showUpdateCandidates && (
+                  <div style={{ padding: '16px 18px', borderTop: '1px solid #FDE68A' }}>
+                    <div style={{ fontSize: 11, color: '#92400E', marginBottom: 12 }}>
+                      掲載済みイベントと同じ日付で、学校サイトの内容が変わっていた項目です。「無視する」を押しても掲載中の内容には影響しません。
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {updateCandidates.map(ev => (
+                        <UpdateCandidateCard
+                          key={ev.id}
+                          ev={ev}
+                          onApply={handleApplyUpdate}
+                          onIgnore={handleIgnoreUpdate}
+                          applying={applyingUpdateId === ev.id}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 14, color: '#555' }}>未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{events.length}</strong> 件</div>
+              <div style={{ fontSize: 14, color: '#555' }}>未確認イベント：<strong style={{ color: '#1a2742', fontSize: 18 }}>{plainEvents.length}</strong> 件</div>
               <button onClick={fetchEvents} style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#555' }}>🔄 更新</button>
             </div>
 
             {loading ? <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>読み込み中...</div>
-              : events.length === 0 ? (
+              : plainEvents.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', background: 'white', borderRadius: 12, color: '#888', fontSize: 14, marginBottom: 20 }}>
                   <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>未確認のイベントはありません。
                 </div>
