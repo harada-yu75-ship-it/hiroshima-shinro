@@ -192,6 +192,7 @@ function UpdateCandidateCard({ ev, onApply, onIgnore, applying }: UpdateCandidat
   return (
     <div style={{ background: 'white', borderRadius: 8, border: '1px solid #FDE68A', overflow: 'hidden' }}>
       <div style={{ padding: '12px 14px' }}>
+        <div style={{ fontSize: 11, color: '#92400E', fontWeight: 700, marginBottom: 2 }}>🏫 {ev.schools?.name}</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 2 }}>{ev.event_name}</div>
         <div style={{ fontSize: 12, color: '#555', marginBottom: 10 }}>📅 {ev.event_date}</div>
 
@@ -421,6 +422,7 @@ export default function AdminPage() {
   const [missingReportId, setMissingReportId] = useState<string | null>(null)
   const [applyingUpdateId, setApplyingUpdateId] = useState<string | null>(null)
   const [showUpdateCandidates, setShowUpdateCandidates] = useState(true)
+  const [updateCandidateSearch, setUpdateCandidateSearch] = useState('')
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
@@ -575,6 +577,15 @@ export default function AdminPage() {
   const updateCandidates = events.filter(ev => !!ev.update_target_id)
   const plainEvents = events.filter(ev => !ev.update_target_id)
 
+  const groupedUpdateCandidates = updateCandidates
+    .filter(ev => !updateCandidateSearch || ev.schools.name.includes(updateCandidateSearch))
+    .reduce((acc, ev) => {
+      const name = ev.schools.name
+      if (!acc[name]) acc[name] = []
+      acc[name].push(ev)
+      return acc
+    }, {} as Record<string, Event[]>)
+
   const groupedEvents = plainEvents.reduce((acc, ev) => {
     const name = ev.schools.name
     if (!acc[name]) acc[name] = []
@@ -690,17 +701,40 @@ export default function AdminPage() {
                     <div style={{ fontSize: 11, color: '#92400E', marginBottom: 12 }}>
                       掲載済みイベントと同じ日付で、学校サイトの内容が変わっていた項目です。「無視する」を押しても掲載中の内容には影響しません。
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {updateCandidates.map(ev => (
-                        <UpdateCandidateCard
-                          key={ev.id}
-                          ev={ev}
-                          onApply={handleApplyUpdate}
-                          onIgnore={handleIgnoreUpdate}
-                          applying={applyingUpdateId === ev.id}
-                        />
-                      ))}
-                    </div>
+                    <input
+                      type="text"
+                      placeholder="学校名で絞り込み..."
+                      value={updateCandidateSearch}
+                      onChange={e => setUpdateCandidateSearch(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', marginBottom: 16, border: '1.5px solid #FDE68A', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    {Object.keys(groupedUpdateCandidates).length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#92400E', fontSize: 13, padding: '20px 0' }}>
+                        {updateCandidateSearch ? `「${updateCandidateSearch}」に一致する学校はありません` : '更新候補はありません'}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {Object.entries(groupedUpdateCandidates).sort(([a], [b]) => a.localeCompare(b, 'ja')).map(([schoolName, schoolCandidates]) => (
+                          <div key={schoolName} style={{ borderRadius: 10, border: '1px solid #FDE68A', overflow: 'hidden' }}>
+                            <div style={{ padding: '10px 14px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, color: '#92400E', fontSize: 13 }}>🏫 {schoolName}</span>
+                              <span style={{ fontSize: 11, color: '#92400E', marginLeft: 8 }}>{schoolCandidates.length}件</span>
+                            </div>
+                            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {schoolCandidates.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => (
+                                <UpdateCandidateCard
+                                  key={ev.id}
+                                  ev={ev}
+                                  onApply={handleApplyUpdate}
+                                  onIgnore={handleIgnoreUpdate}
+                                  applying={applyingUpdateId === ev.id}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
