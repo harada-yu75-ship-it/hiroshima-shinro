@@ -206,7 +206,7 @@ def save_events(school_id, events, source_url):
         # 承認済みイベントを日付ごとに取得（重複判定・差分比較・紐付けに使う）
         verified_res = supabase.table("events").select(
             "id, event_date, event_name, event_time, requires_application, "
-            "application_deadline, application_url, notes"
+            "application_deadline, application_url, notes, is_manual"
         ).eq("school_id", school_id).eq("is_verified", True).execute()
 
         verified_by_date = {}
@@ -243,6 +243,12 @@ def save_events(school_id, events, source_url):
             # 承認済みと同日 → 差分があれば「更新候補」として保存
             # 同日に複数の承認済みイベントがある場合は先頭のものと比較する（限定的だが現状は十分）
             matched = candidates[0]
+
+            if matched.get("is_manual"):
+                # 手入力したイベントはクローラーの取得内容で上書き候補を作らない
+                # （学校サイト側にまだ情報が無いだけのケースが多く、手入力の方が正確なため）
+                print(f"  スキップ（手入力イベントのため対象外）: {ev_date} {ev.get('event_name')}")
+                continue
             has_diff = False
             for field in UPDATE_COMPARE_FIELDS:
                 new_val = ev.get(field) or None
