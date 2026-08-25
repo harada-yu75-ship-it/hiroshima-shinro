@@ -1,5 +1,10 @@
 import type { School, MiddleSchool, Event } from '@/types'
 
+// サンプルデータは開発時のフォールバック用の最小データのため、
+// 運用上のクロール関連フィールド（crawl_error 等）は持たせない
+type SampleSchool = Omit<School, 'crawl_error' | 'crawl_error_count' | 'crawl_hash'>
+type SampleEvent = Omit<Event, 'update_target_id' | 'is_manual'>
+
 function daysFromNow(d: number): string {
   const dt = new Date()
   dt.setDate(dt.getDate() + d)
@@ -24,7 +29,7 @@ export const SAMPLE_MIDDLE_SCHOOLS: MiddleSchool[] = [
   { id: 'ms15', name: '広島市立庚午中学校',   address: '広島市西区庚午北3丁目',     lat: 34.3921, lng: 132.4108 },
 ]
 
-export const SAMPLE_SCHOOLS: School[] = [
+export const SAMPLE_SCHOOLS: SampleSchool[] = [
   { id: 's01', name: '広島県立広島国泰寺高等学校', name_kana: 'こくたいじ', school_type: 'high', is_public: true,
     lat: 34.3918, lng: 132.4538, address: '広島市中区国泰寺町1-4-1',
     official_url: 'https://www.hiroshima-kokutaiji.hiroshima-c.ed.jp/',
@@ -102,7 +107,7 @@ export const SAMPLE_SCHOOLS: School[] = [
     crawl_enabled: true, last_crawled_at: null, created_at: new Date().toISOString() },
 ]
 
-export const SAMPLE_EVENTS: Event[] = [
+export const SAMPLE_EVENTS: SampleEvent[] = [
   { id: 'e001', school_id: 's01', event_name: '学校説明会', event_date: daysFromNow(18),
     event_time: '13:30〜15:30', requires_application: true, capacity: 200,
     notes: '先着200名・要事前申込', application_url: null,
