@@ -1,8 +1,11 @@
-/// 学校種別
+// 学校種別
 export type SchoolType = 'high' | 'tsushin' | 'senmon_kouto' | 'kosen'
 
 // タブフィルター種別
 export type SchoolFilter = 'all' | 'high_public' | 'high_private' | 'tsushin' | 'senmon_kouto' | 'kosen'
+
+// 指摘の対応状況
+export type ReportStatus = 'open' | 'resolved'
 
 // イベント（DBから取得した生データ）
 export interface Event {
@@ -19,6 +22,8 @@ export interface Event {
   source_url: string
   is_verified: boolean
   crawled_at: string
+  update_target_id: string | null
+  is_manual: boolean
 }
 
 // 学校（DBから取得した生データ）
@@ -36,6 +41,9 @@ export interface School {
   crawl_enabled: boolean
   last_crawled_at: string | null
   created_at: string
+  crawl_error: string | null
+  crawl_error_count: number
+  crawl_hash: string | null
 }
 
 // 中学校
@@ -45,6 +53,23 @@ export interface MiddleSchool {
   address: string
   lat: number
   lng: number
+}
+
+// 誤り・掲載漏れの指摘
+export interface Report {
+  id: string
+  school_id: string | null
+  school_name_text: string | null
+  report_type: string
+  description: string
+  suggested_value: string | null
+  suggested_values: Record<string, string> | null
+  reporter_email: string
+  reporter_name: string | null
+  status: ReportStatus
+  created_at: string | null
+  resolved_at: string | null
+  resolved_by: string | null
 }
 
 // フロントエンド表示用（距離付き学校＋イベント）
@@ -68,18 +93,26 @@ export interface Database {
     Tables: {
       schools: {
         Row: School
-        Insert: Omit<School, 'id' | 'created_at'>
+        Insert: Omit<School, 'id' | 'created_at' | 'crawl_error' | 'crawl_error_count' | 'crawl_hash'> &
+          Partial<Pick<School, 'crawl_error' | 'crawl_error_count' | 'crawl_hash'>>
         Update: Partial<Omit<School, 'id' | 'created_at'>>
       }
       events: {
         Row: Event
-        Insert: Omit<Event, 'id'>
+        Insert: Omit<Event, 'id' | 'crawled_at' | 'update_target_id' | 'is_manual'> &
+          Partial<Pick<Event, 'update_target_id' | 'is_manual'>>
         Update: Partial<Omit<Event, 'id'>>
       }
       middle_schools: {
         Row: MiddleSchool
         Insert: Omit<MiddleSchool, 'id'>
         Update: Partial<Omit<MiddleSchool, 'id'>>
+      }
+      reports: {
+        Row: Report
+        Insert: Omit<Report, 'id' | 'created_at' | 'resolved_at' | 'resolved_by' | 'status'> &
+          Partial<Pick<Report, 'created_at' | 'resolved_at' | 'resolved_by' | 'status'>>
+        Update: Partial<Omit<Report, 'id'>>
       }
     }
   }
