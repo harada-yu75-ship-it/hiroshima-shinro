@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Supabase not configured')
     }
-
     const { data: schoolData, error: schoolErr } = await supabase
       .from('schools')
       .select('*')
@@ -35,11 +34,22 @@ export async function GET(request: NextRequest) {
       .order('event_date')
     if (eventErr) throw eventErr
     events = eventData ?? []
-
   } catch (err) {
     console.error('Supabase error:', err)
-    schools = SAMPLE_SCHOOLS
-    events = SAMPLE_EVENTS.filter(e => isFutureOrToday(e.event_date))
+    // サンプルデータは開発用の最小データなので、運用フィールドはここで補って型を揃える
+    schools = SAMPLE_SCHOOLS.map(s => ({
+      ...s,
+      crawl_error: null,
+      crawl_error_count: 0,
+      crawl_hash: null,
+    }))
+    events = SAMPLE_EVENTS
+      .filter(e => isFutureOrToday(e.event_date))
+      .map(e => ({
+        ...e,
+        update_target_id: null,
+        is_manual: false,
+      }))
     usingFallback = true
   }
 
