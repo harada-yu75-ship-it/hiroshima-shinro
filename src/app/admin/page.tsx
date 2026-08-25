@@ -16,6 +16,7 @@ interface Event {
   schools: { name: string; official_url: string }
   update_target_id?: string | null
   update_target?: Event | null
+  is_manual?: boolean
 }
 
 interface School {
@@ -339,6 +340,7 @@ function MissingPanel({ report, schools, onRegister, onClose }: MissingPanelProp
       notes: form.notes || null,
       source_url: targetSchool.official_url,
       is_verified: true,
+      is_manual: true,
     })
     setRegistering(false)
     onClose()
@@ -507,7 +509,7 @@ export default function AdminPage() {
         capacity: addForm.capacity ? Number(addForm.capacity) : null,
         notes: addForm.notes || null, application_url: addForm.application_url || null,
         application_deadline: addForm.application_deadline || null,
-        source_url: school.official_url, is_verified: true,
+        source_url: school.official_url, is_verified: true, is_manual: true,
       }),
     })
     if (!res.ok) { setAddError('登録に失敗しました') } else { setAddForm(EMPTY_FORM); setShowAddForm(false); await fetchEvents() }
