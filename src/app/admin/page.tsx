@@ -193,7 +193,6 @@ function UpdateCandidateCard({ ev, onApply, onIgnore, applying }: UpdateCandidat
   return (
     <div style={{ background: 'white', borderRadius: 8, border: '1px solid #FDE68A', overflow: 'hidden' }}>
       <div style={{ padding: '12px 14px' }}>
-        <div style={{ fontSize: 11, color: '#92400E', fontWeight: 700, marginBottom: 2 }}>🏫 {ev.schools?.name}</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 2 }}>{ev.event_name}</div>
         <div style={{ fontSize: 12, color: '#555', marginBottom: 10 }}>📅 {ev.event_date}</div>
 
@@ -718,9 +717,19 @@ export default function AdminPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {Object.entries(groupedUpdateCandidates).sort(([a], [b]) => a.localeCompare(b, 'ja')).map(([schoolName, schoolCandidates]) => (
                           <div key={schoolName} style={{ borderRadius: 10, border: '1px solid #FDE68A', overflow: 'hidden' }}>
-                            <div style={{ padding: '10px 14px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ padding: '10px 14px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                               <span style={{ fontWeight: 700, color: '#92400E', fontSize: 13 }}>🏫 {schoolName}</span>
-                              <span style={{ fontSize: 11, color: '#92400E', marginLeft: 8 }}>{schoolCandidates.length}件</span>
+                              <span style={{ fontSize: 11, color: '#92400E' }}>{schoolCandidates.length}件</span>
+                              {schoolCandidates[0]?.schools?.official_url && (
+                                <a
+                                  href={schoolCandidates[0].schools.official_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ color: '#92400E', fontSize: 11, textDecoration: 'underline', marginLeft: 'auto' }}
+                                >
+                                  公式サイト →
+                                </a>
+                              )}
                             </div>
                             <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {schoolCandidates.sort((a, b) => a.event_date.localeCompare(b.event_date)).map(ev => (
