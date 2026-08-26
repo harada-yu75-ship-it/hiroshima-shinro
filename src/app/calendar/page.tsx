@@ -269,8 +269,17 @@ export default function CalendarPage() {
                     background: TYPE_COLOR[getTypeKey(ev.school)],
                   }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
-                      {ev.school.name}
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span>{ev.school.name}</span>
+                      <a
+                        href={ev.school.official_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{ color: '#2563EB', fontSize: 11, textDecoration: 'none' }}
+                      >
+                        公式サイト →
+                      </a>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
                       {ev.event_name}
