@@ -95,13 +95,13 @@ export async function PATCH(request: NextRequest) {
     const { error: updateErr } = await supabase
       .from('events')
       .update({
-        event_name: c.event_name,
-        event_time: c.event_time,
-        requires_application: c.requires_application,
-        capacity: c.capacity,
-        notes: c.notes,
-        application_deadline: c.application_deadline,
-        application_url: c.application_url,
+        event_name: data?.event_name ?? c.event_name,
+        event_time: data?.event_time ?? c.event_time,
+        requires_application: data?.requires_application ?? c.requires_application,
+        capacity: data?.capacity ?? c.capacity,
+        notes: data?.notes ?? c.notes,
+        application_deadline: data?.application_deadline ?? c.application_deadline,
+        application_url: data?.application_url ?? c.application_url,
         source_url: c.source_url,
       } as never)
       .eq('id', c.update_target_id)
