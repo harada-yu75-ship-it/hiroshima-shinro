@@ -163,7 +163,7 @@ function EventCard({
 // 更新候補カード
 interface UpdateCandidateCardProps {
   ev: Event
-  onApply: (id: string) => void
+  onApply: (id: string, data?: Partial<Event>) => void
   onIgnore: (id: string) => void
   applying: boolean
 }
@@ -174,6 +174,14 @@ const DIFF_FIELDS: { key: keyof Event; label: string }[] = [
   { key: 'application_deadline', label: '申込締切' },
   { key: 'application_url', label: '申込URL' },
   { key: 'notes', label: '備考' },
+]
+
+const EDITABLE_FIELDS: { key: keyof Event; label: string; type: string }[] = [
+  { key: 'event_name', label: 'イベント名', type: 'text' },
+  { key: 'event_time', label: '時間', type: 'text' },
+  { key: 'application_deadline', label: '申込締切', type: 'date' },
+  { key: 'application_url', label: '申込URL', type: 'text' },
+  { key: 'notes', label: '備考', type: 'text' },
 ]
 
 function formatDiffValue(key: keyof Event, val: any): string {
@@ -190,49 +198,126 @@ function UpdateCandidateCard({ ev, onApply, onIgnore, applying }: UpdateCandidat
     return (newVal || null) !== (oldVal || null)
   })
 
+  const [editing, setEditing] = useState(false)
+  const [editData, setEditData] = useState<Partial<Event>>({})
+
+  const startEdit = () => {
+    setEditData({
+      event_name: ev.event_name,
+      event_time: ev.event_time ?? '',
+      requires_application: ev.requires_application,
+      application_deadline: ev.application_deadline ?? '',
+      application_url: ev.application_url ?? '',
+      notes: ev.notes ?? '',
+    })
+    setEditing(true)
+  }
+
+  const inputStyle = { flex: 1, padding: '5px 8px', border: '1.5px solid #FDE68A', borderRadius: 6, fontSize: 13, outline: 'none' }
+  const labelStyle = { fontSize: 11, color: '#92400E', minWidth: 72 }
+
   return (
     <div style={{ background: 'white', borderRadius: 8, border: '1px solid #FDE68A', overflow: 'hidden' }}>
       <div style={{ padding: '12px 14px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2742', marginBottom: 2 }}>{ev.event_name}</div>
         <div style={{ fontSize: 12, color: '#555', marginBottom: 10 }}>📅 {ev.event_date}</div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-          {diffs.map(f => (
-            <div key={String(f.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
-              <span style={{ minWidth: 64, color: '#92400E', fontWeight: 700 }}>{f.label}</span>
-              <span style={{ color: '#9CA3AF', textDecoration: 'line-through' }}>
-                {formatDiffValue(f.key, target ? (target as any)[f.key] : null)}
-              </span>
-              <span style={{ color: '#9CA3AF' }}>→</span>
-              <span style={{ color: '#065F46', fontWeight: 700 }}>
-                {formatDiffValue(f.key, (ev as any)[f.key])}
-              </span>
-            </div>
-          ))}
-          {diffs.length === 0 && (
-            <div style={{ fontSize: 11, color: '#9CA3AF' }}>差分の内訳を取得できませんでした（適用は可能です）</div>
-          )}
-        </div>
+        {!editing && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+            {diffs.map(f => (
+              <div key={String(f.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
+                <span style={{ minWidth: 64, color: '#92400E', fontWeight: 700 }}>{f.label}</span>
+                <span style={{ color: '#9CA3AF', textDecoration: 'line-through' }}>
+                  {formatDiffValue(f.key, target ? (target as any)[f.key] : null)}
+                </span>
+                <span style={{ color: '#9CA3AF' }}>→</span>
+                <span style={{ color: '#065F46', fontWeight: 700 }}>
+                  {formatDiffValue(f.key, (ev as any)[f.key])}
+                </span>
+              </div>
+            ))}
+            {diffs.length === 0 && (
+              <div style={{ fontSize: 11, color: '#9CA3AF' }}>差分の内訳を取得できませんでした（適用は可能です）</div>
+            )}
+          </div>
+        )}
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => onApply(ev.id)}
-            disabled={applying}
-            style={{ background: applying ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: applying ? 'not-allowed' : 'pointer' }}
-          >
-            {applying ? '適用中...' : '✅ この内容で更新'}
-          </button>
-          <button
-            onClick={() => onIgnore(ev.id)}
-            disabled={applying}
-            style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: applying ? 'not-allowed' : 'pointer' }}
-          >
-            ✕ 無視する
-          </button>
+        {editing && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: 10 }}>
+            {EDITABLE_FIELDS.map(({ key, label, type }) => (
+              <div key={String(key)} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={labelStyle}>{label}</label>
+                <input
+                  type={type}
+                  value={(editData as any)[key] ?? ''}
+                  onChange={e => setEditData(d => ({ ...d, [key]: e.target.value }))}
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={labelStyle}>要申込</label>
+              <select
+                value={editData.requires_application === true ? 'true' : editData.requires_application === false ? 'false' : ''}
+                onChange={e => setEditData(d => ({ ...d, requires_application: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null }))}
+                style={{ padding: '5px 8px', border: '1.5px solid #FDE68A', borderRadius: 6, fontSize: 13 }}
+              >
+                <option value="">不明</option>
+                <option value="true">要申込</option>
+                <option value="false">申込不要</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {editing ? (
+            <>
+              <button
+                onClick={() => { onApply(ev.id, editData); setEditing(false) }}
+                disabled={applying}
+                style={{ background: applying ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: applying ? 'not-allowed' : 'pointer' }}
+              >
+                {applying ? '適用中...' : '💾 この内容で更新'}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                disabled={applying}
+                style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: applying ? 'not-allowed' : 'pointer' }}
+              >
+                キャンセル
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onApply(ev.id)}
+                disabled={applying}
+                style={{ background: applying ? '#9CA3AF' : '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: applying ? 'not-allowed' : 'pointer' }}
+              >
+                {applying ? '適用中...' : '✅ この内容で更新'}
+              </button>
+              <button
+                onClick={startEdit}
+                disabled={applying}
+                style={{ background: '#EFF6FF', color: '#2563EB', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: applying ? 'not-allowed' : 'pointer' }}
+              >
+                ✏️ 修正して更新
+              </button>
+              <button
+                onClick={() => onIgnore(ev.id)}
+                disabled={applying}
+                style={{ background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: applying ? 'not-allowed' : 'pointer' }}
+              >
+                ✕ 無視する
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
+
 }
 
 // イベント適用パネル
@@ -481,9 +566,9 @@ export default function AdminPage() {
     fetchEvents()
   }, [fetchEvents])
 
-  const handleApplyUpdate = useCallback(async (id: string) => {
+  const handleApplyUpdate = useCallback(async (id: string, data?: Partial<Event>) => {
     setApplyingUpdateId(id)
-    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'apply_update' }) })
+    await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'apply_update', data }) })
     setApplyingUpdateId(null)
     await fetchEvents()
   }, [fetchEvents])
